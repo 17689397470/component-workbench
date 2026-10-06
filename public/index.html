@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BOM Pro - 个人元器件工坊</title>
+  <link rel="stylesheet" href="css/style.css?v=20261006_project_v2">
+</head>
+<body>
+
+  <!-- ==================== 顶部导航栏 (Apple Minimal Header) ==================== -->
+  <header class="app-header">
+    <div class="brand" onclick="switchNavTab('tab-inventory')">
+      <div class="logo-icon">⚡</div>
+      <span>元件工坊</span>
+    </div>
+
+    <nav class="header-nav">
+      <button class="nav-pill-btn active" id="nav-btn-inventory" onclick="switchNavTab('tab-inventory')">
+        📦 我的库存
+      </button>
+      <button class="nav-pill-btn" id="nav-btn-boxes" onclick="switchNavTab('tab-boxes')">
+        🗄️ 物理收纳
+      </button>
+      <button class="nav-pill-btn" id="nav-btn-bom" onclick="switchNavTab('tab-bom')">
+        📋 BOM 查重比对
+      </button>
+      <button class="nav-pill-btn" id="nav-btn-projects" onclick="switchNavTab('tab-projects')">
+        🛠️ 制作项目
+      </button>
+    </nav>
+
+    <div class="header-tools">
+      <button class="filter-tag" id="btn-open-taobao-import" style="padding: 7px 12px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 5px; color: var(--accent); border-color: rgba(0, 113, 227, 0.3); background: rgba(0, 113, 227, 0.05);" title="从淘宝订单Excel批量智能导入元器件">
+        <span>🛒</span>
+        <span>导入淘宝订单</span>
+      </button>
+      <button class="btn-record" id="btn-open-entry-drawer">
+        <span>＋</span>
+        <span>记一笔</span>
+      </button>
+      <button class="icon-btn-minimal" id="btn-open-global-logs" title="查看全库出入库流水日志">📜</button>
+      <button class="icon-btn-minimal" id="btn-theme-toggle" title="切换浅色/深色主题">☀</button>
+      <button class="icon-btn-minimal" id="btn-show-qr" title="手机扫码访问">📱</button>
+    </div>
+  </header>
+
+  <!-- ==================== 主内容区 ==================== -->
+  <main class="main-wrapper">
+
+    <!-- ------------------ 视图 1: 我的库存 ------------------ -->
+    <section id="tab-inventory" class="tab-view">
+      <!-- 工坊宏观大盘看板 (Workshop Dashboard) -->
+      <div id="inventory-dashboard" class="workshop-dashboard">
+        <div class="dashboard-top-bar">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">⚡ 工坊数据大盘</span>
+            <span class="sub-tag-pill" id="dash-status-pill" style="font-size: 10px; color: #16a34a; background: rgba(22, 163, 74, 0.08); border-color: rgba(22, 163, 74, 0.2);">健康运行中</span>
+          </div>
+          <button type="button" class="btn-apple-secondary" id="btn-toggle-dashboard" style="font-size: 11px; padding: 2px 8px;" onclick="toggleWorkshopDashboard()">
+            ▲ 收起看板
+          </button>
+        </div>
+
+        <!-- 展开态：三栏式卡片网格 -->
+        <div id="dashboard-cards-grid" class="dashboard-grid">
+          <!-- 卡片 1: 现货库存总览 -->
+          <div class="dashboard-card clickable-dash-card" id="dash-card-overview" onclick="resetCategoryFilter()" title="点击复位显示全部元件">
+            <div class="dash-card-header">
+              <span class="dash-card-title">📦 在库现货总览</span>
+              <span class="dash-card-action-hint">全部物料 ➔</span>
+            </div>
+            <div class="dash-metric-main">
+              <span class="dash-metric-number" id="dash-total-types">0</span>
+              <span class="dash-metric-unit">种 SKU</span>
+            </div>
+            <div class="dash-metric-sub">
+              <span>在库总件数:</span>
+              <strong id="dash-total-pieces" style="color: var(--accent); font-family: var(--font-mono);">0</strong>
+              <span>件</span>
+              <span style="color: var(--text-dim); margin-left: 6px;" id="dash-batch-count-tag">(0 批记录)</span>
+            </div>
+          </div>
+
+          <!-- 卡片 2: 品类结构分布 (多色堆叠占比条) -->
+          <div class="dashboard-card" id="dash-card-categories">
+            <div class="dash-card-header">
+              <span class="dash-card-title">📊 品类结构分布</span>
+              <span class="dash-card-tip">点击色块可快速过滤</span>
+            </div>
+            <!-- 多色堆叠分段条 -->
+            <div class="dash-segmented-bar" id="dash-category-segmented-bar">
+              <!-- 动态分段 -->
+            </div>
+            <!-- 图例徽标群 -->
+            <div class="dash-legends" id="dash-category-legends">
+              <!-- 动态图例 -->
+            </div>
+          </div>
+
+          <!-- 卡片 3: 物理收纳与健康度 -->
+          <div class="dashboard-card" id="dash-card-health">
+            <div class="dash-card-header">
+              <span class="dash-card-title">🗄️ 物理收纳与健康度</span>
+              <span class="dash-card-action-hint" onclick="event.stopPropagation(); switchNavTab('tab-boxes')">管理收纳 ➔</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+              <div class="dash-metric-main" style="margin-bottom: 0;">
+                <span class="dash-metric-number" id="dash-boxes-count">0</span>
+                <span class="dash-metric-unit">个收纳盒</span>
+              </div>
+              <div id="dash-low-stock-alert" class="dash-alert-pill" onclick="filterByLowStock(); event.stopPropagation();" title="点击查看低于安全库存的物料">
+                <span>⚠️ 待补料:</span>
+                <strong id="dash-low-stock-num">0</strong>
+                <span>种</span>
+              </div>
+            </div>
+            <div class="dash-metric-sub">
+              <span id="dash-storage-health-text">空间分配健康 · 随手存放定位率 100%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 收起态：超轻量单行摘要条 -->
+        <div id="dashboard-collapsed-bar" class="dash-collapsed-bar" style="display: none;">
+          <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); flex-wrap: wrap;">
+            <span>📦 在库 <strong id="dash-mini-types" style="color: var(--text-main);">0</strong> 种 (<strong id="dash-mini-pieces" style="color: var(--text-main);">0</strong>件)</span>
+            <span>·</span>
+            <span>🗄️ <strong id="dash-mini-boxes" style="color: var(--text-main);">0</strong> 个收纳盒</span>
+            <span>·</span>
+            <span id="dash-mini-low-stock" style="color: #b45309; cursor: pointer;" onclick="filterByLowStock()">⚠️ <strong id="dash-mini-low-num">0</strong> 种待补料</span>
+          </div>
+          <button type="button" class="btn-apple-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="toggleWorkshopDashboard()">
+            ▼ 展开大盘
+          </button>
+        </div>
+      </div>
+
+      <!-- 聚光灯搜索条 -->
+      <div class="spotlight-container">
+        <div class="spotlight-bar">
+          <span class="spotlight-icon">🔍</span>
+          <input type="text" id="inventory-search" class="spotlight-input" placeholder="秒级检索：输入型号、阻容、封装或随手存放位置..." autocomplete="off">
+          <span class="spotlight-kbd">/</span>
+        </div>
+      </div>
+
+      <!-- 分类标签过滤与快捷操作 -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+        <div class="category-filter-bar" id="category-filter-bar" style="margin-bottom: 0;">
+          <button class="filter-tag active" data-cat="">全部 (<span id="total-count-num">0</span>)</button>
+          <button class="filter-tag" data-cat="电阻">电阻</button>
+          <button class="filter-tag" data-cat="电容">电容</button>
+          <button class="filter-tag" data-cat="芯片">芯片</button>
+          <button class="filter-tag" data-cat="二极管">二极管</button>
+          <button class="filter-tag" data-cat="三极管/MOS">三极管/MOS</button>
+          <button class="filter-tag" data-cat="接插件">接插件</button>
+          <button class="filter-tag" data-cat="模块">模块</button>
+          <button class="filter-tag" id="btn-filter-low-stock" data-cat="__low_stock__" style="color: #b45309; border-color: #fde68a; background: #fefce8;">⚠️ 待补货 (<span id="low-stock-count-num">0</span>)</button>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button class="filter-tag" id="btn-export-replenishment" title="导出低于安全库存的元器件补货单" style="color: #b45309; border-color: #fde68a; background: #fefce8; display: none;">🛒 导出补货单</button>
+          <button class="filter-tag" id="btn-seed-presets" style="border-style: dashed;" title="一键载入E24常用阻容与常用芯片预设">⚡ 导入常用预设</button>
+          <button class="filter-tag" id="btn-export-excel" title="导出全部数据为 Excel">⬇ 导出备份</button>
+        </div>
+      </div>
+
+      <!-- Airtable / Linear 专业多维工作台表格 -->
+      <div class="pro-table-wrapper">
+        <div class="sheet-header-summary">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-weight: 600;">元器件多维清单</span>
+            <span class="sub-tag-pill" id="table-total-pill">共 0 项</span>
+          </div>
+          <span id="sheet-stats-text" style="font-size: 12px; color: var(--text-dim);">点击行可打开规格书抽屉 · 点击存放位置可按盒过滤</span>
+        </div>
+        <table class="pro-table">
+          <thead class="pro-thead" id="pro-table-head">
+            <tr>
+              <th class="pro-th" data-sort="name" style="width: 24%;">型号 / 品名 <span class="sort-icon">▲▼</span></th>
+              <th class="pro-th" data-sort="category" style="width: 12%;">分类 <span class="sort-icon">▲▼</span></th>
+              <th class="pro-th" data-sort="package" style="width: 12%;">封装 <span class="sort-icon">▲▼</span></th>
+              <th class="pro-th" data-sort="value" style="width: 16%;">规格参数 <span class="sort-icon">▲▼</span></th>
+              <th class="pro-th" data-sort="location" style="width: 16%;">存放位置 <span class="sort-icon">▲▼</span></th>
+              <th class="pro-th" data-sort="lcsc_part" style="width: 10%;">立创编号</th>
+              <th class="pro-th" data-sort="quantity" style="text-align: right; width: 10%;">库存余量 <span class="sort-icon">▲▼</span></th>
+              <th class="pro-th" style="text-align: center; width: 40px;"></th>
+            </tr>
+          </thead>
+          <tbody class="pro-tbody" id="pro-table-body">
+            <!-- 动态渲染专业表格行 -->
+          </tbody>
+        </table>
+        <div id="empty-hint" style="display: none; padding: 60px 20px; text-align: center; color: var(--text-dim);">
+          <div style="font-size: 24px; margin-bottom: 8px;">🍃</div>
+          <div style="font-size: 15px; font-weight: 500;">未找到匹配的元器件</div>
+          <div style="font-size: 13px; margin-top: 4px;">点击右上角「＋ 记一笔」快速录入，或点击上方「⚡ 导入常用预设」</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------ 视图 2: BOM 查重比对 ------------------ -->
+    <section id="tab-bom" class="tab-view" style="display: none;">
+      <!-- 上传拖拽区域 (未上传时大卡片展示) -->
+      <div class="bom-upload-box" id="bom-dropzone">
+        <input type="file" id="bom-file-input" accept=".csv, .xlsx, .xls" style="display: none;">
+        <div style="font-size: 34px; margin-bottom: 8px;">📑</div>
+        <div style="font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">点击或拖拽上传工程 BOM 表格</div>
+        <div style="font-size: 13px; color: var(--text-dim); line-height: 1.5; max-width: 480px; margin: 0 auto;">
+          智能识别嘉立创EDA (专业版/标准版)、KiCad、Altium 等导出的 .xlsx / .csv 文件，阻容参数等效比对、高耐压向下兼容推荐
+        </div>
+      </div>
+
+      <!-- 紧凑型文件信息条 (上传解析后显示，替代大卡片) -->
+      <div id="bom-compact-file-bar" style="display: none;" class="bom-compact-bar">
+        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+            <span>📄</span>
+            <span id="bom-filename-tag" style="font-family: var(--font-mono); color: var(--accent);">bom.xlsx</span>
+          </span>
+          <span id="bom-template-badge" class="sub-tag-pill" style="color: #0284c7; background: rgba(2, 132, 199, 0.08); border-color: rgba(2, 132, 199, 0.2);">⚡ 嘉立创EDA (EasyEDA)</span>
+          <span id="bom-count-tag" class="sub-tag-pill">共 0 项物料</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn-apple-secondary" id="btn-toggle-mapping" style="font-size: 12px; padding: 5px 12px;">
+            ⚙️ 列映射微调
+          </button>
+          <button type="button" class="btn-apple-secondary" id="btn-bom-reupload" style="font-size: 12px; padding: 5px 12px;">
+            ↺ 换文件
+          </button>
+        </div>
+      </div>
+
+      <!-- 列映射折叠抽屉条 (默认收起，点击微调展开) -->
+      <div id="bom-mapping-bar" style="display: none;" class="bom-mapping-drawer">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">⚙️ 自定义列映射配置 (已自动识别并预设)</span>
+          <button type="button" class="btn-apple-primary" id="btn-run-compare" style="font-size: 12px; padding: 5px 14px;">🚀 重新比对</button>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+          <div>
+            <label class="drawer-label">型号列 (Comment/Value)</label>
+            <select id="map-part-col" class="drawer-input"></select>
+          </div>
+          <div>
+            <label class="drawer-label">封装列 (Footprint)</label>
+            <select id="map-footprint-col" class="drawer-input"></select>
+          </div>
+          <div>
+            <label class="drawer-label">用量列 (Quantity)</label>
+            <select id="map-qty-col" class="drawer-input"></select>
+          </div>
+          <div>
+            <label class="drawer-label">位号列 (Designator)</label>
+            <select id="map-designator-col" class="drawer-input"></select>
+          </div>
+          <div>
+            <label class="drawer-label">立创编号列 (可选)</label>
+            <select id="map-lcsc-col" class="drawer-input"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 比对结果工作台 -->
+      <div id="bom-results-area" style="display: none;">
+        <!-- 顶部多维控制条 (状态胶囊群 + 位号实时秒搜 + 一键采纳) -->
+        <div class="bom-control-bar">
+          <div class="bom-filter-pill-group" id="bom-filter-pill-group">
+            <button type="button" class="filter-tab-pill active" id="tab-bom-filter-all" onclick="setBOMFilter('all')">
+              全部 (<span id="stat-all-count">0</span>)
+            </button>
+            <button type="button" class="filter-tab-pill" id="tab-bom-filter-match" onclick="setBOMFilter('EXACT_MATCH')">
+              <span class="dot-indicator green"></span> 现货充足 (<span id="stat-match-count">0</span>)
+            </button>
+            <button type="button" class="filter-tab-pill" id="tab-bom-filter-sub" onclick="setBOMFilter('SUBSTITUTE_AVAILABLE')">
+              <span class="dot-indicator blue"></span> 建议替代 (<span id="stat-sub-count">0</span>)
+            </button>
+            <button type="button" class="filter-tab-pill" id="tab-bom-filter-short" onclick="setBOMFilter('LOW_STOCK')">
+              <span class="dot-indicator amber"></span> 缺差额 (<span id="stat-short-count">0</span>)
+            </button>
+            <button type="button" class="filter-tab-pill" id="tab-bom-filter-lack" onclick="setBOMFilter('LACK')">
+              <span class="dot-indicator red"></span> 必须采购 (<span id="stat-lack-count">0</span>)
+            </button>
+          </div>
+
+          <div class="bom-search-and-actions">
+            <div class="bom-search-box">
+              <span class="bom-search-icon">🔍</span>
+              <input type="text" id="bom-search-input" class="bom-search-input" placeholder="秒搜位号 (如R1, C12)、型号或封装..." autocomplete="off">
+              <button type="button" id="btn-bom-search-clear" class="bom-search-clear" style="display: none;" onclick="clearBOMSearch()">✕</button>
+            </div>
+            <button type="button" class="btn-apple-secondary" id="btn-adopt-all-substitutes" style="display: none; font-size: 12px; padding: 6px 12px; color: #0284c7; border-color: rgba(2, 132, 199, 0.3);" onclick="adoptAllSubstitutes()">
+              ⚡ 一键采纳全部合规替代
+            </button>
+          </div>
+        </div>
+
+        <!-- 双栏对齐 Pro Table 核心表格 -->
+        <div class="bom-pro-table-wrapper">
+          <table class="bom-pro-table">
+            <thead>
+              <tr class="bom-pro-thead-group">
+                <th colspan="4" class="th-group-demand">📋 工程需求 (BOM DEMAND)</th>
+                <th colspan="4" class="th-group-stock">📦 我的库存现状 (STOCK REALITY)</th>
+              </tr>
+              <tr class="bom-pro-thead-cols">
+                <th style="width: 55px; text-align: center;">序号</th>
+                <th style="min-width: 170px;">BOM 型号 / 规格</th>
+                <th style="min-width: 140px;">位号清单 (Refs)</th>
+                <th style="width: 80px; text-align: right;">需用量</th>
+                <th style="min-width: 180px;">匹配库存物料</th>
+                <th style="width: 125px;">现存 / 缺口</th>
+                <th style="min-width: 135px;">存放收纳盒</th>
+                <th style="width: 110px; text-align: center;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="bom-pro-table-tbody">
+              <!-- 动态双栏行渲染 -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 底部浮动操作坞 (Apple Floating Dock) -->
+        <div class="floating-dock-bar">
+          <button class="dock-btn" id="btn-dock-picking">
+            <span>📦</span>
+            <span>照单拿料助手 (按箱带进度)</span>
+          </button>
+          <button class="dock-btn" id="btn-dock-export-shortage">
+            <span>🛒</span>
+            <span>缺料采购助手</span>
+          </button>
+          <button class="dock-btn" id="btn-dock-save-project" style="color: #0284c7; border-color: rgba(2, 132, 199, 0.3);">
+            <span>🛠️</span>
+            <span>存为制作项目</span>
+          </button>
+          <button class="dock-btn primary" id="btn-dock-deduct">
+            <span>⚡</span>
+            <span>一键出库扣减</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------ 视图 3: 物理收纳空间 ------------------ -->
+    <section id="tab-boxes" class="tab-view" style="display: none;">
+      <!-- 顶部操作条 -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">🗄️ 物理收纳空间</h2>
+          <div style="font-size: 13px; color: var(--text-muted);">
+            打通真实抽屉、透明自封袋与剪带袋 · 一袋一贴终身免撕免换 · 手机扫码直达透视与出入库
+          </div>
+        </div>
+      </div>
+
+      <!-- 收纳空间控制栏 (秒搜 + 批量多选打印) -->
+      <div class="boxes-control-bar">
+        <!-- 搜索框 -->
+        <div class="boxes-search-box">
+          <span style="font-size: 13px; color: var(--text-dim);">🔍</span>
+          <input type="text" id="boxes-search-input" class="boxes-search-input" placeholder="秒搜袋号、袋内型号/阻容值、封装或分类..." autocomplete="off">
+          <button type="button" id="btn-boxes-search-clear" class="boxes-search-clear" style="display: none;" onclick="clearBoxesSearch()">✕</button>
+        </div>
+
+        <!-- 批量操作与统计胶囊 -->
+        <div class="boxes-bulk-actions">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-apple-secondary" id="btn-boxes-select-all" style="font-size: 12px; padding: 5px 10px;" onclick="selectAllBoxes(true)">全选</button>
+            <button type="button" class="btn-apple-secondary" id="btn-boxes-deselect-all" style="font-size: 12px; padding: 5px 10px;" onclick="selectAllBoxes(false)">清空选择</button>
+            <span class="sub-tag-pill" id="boxes-selected-badge" style="display: none; background: rgba(35, 131, 226, 0.08); color: var(--accent); font-weight: 600;">已选 0 袋</span>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-apple-primary" id="btn-open-print-labels" style="padding: 6px 14px; font-size: 12.5px; font-weight: 600;">
+              🏷️ 批量打印标签 (<span id="btn-print-count-num">全部</span>)
+            </button>
+            <button type="button" class="filter-tag" id="btn-refresh-boxes" title="刷新收纳袋统计" style="margin-bottom: 0;">
+              🔄 刷新
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 收纳盒卡片网格 -->
+      <div class="boxes-grid" id="boxes-grid-container">
+        <!-- 动态加载各收纳盒卡片 -->
+      </div>
+    </section>
+
+    <!-- ------------------ 视图 4: 制作项目与套料包 ------------------ -->
+    <section id="tab-projects" class="tab-view" style="display: none;">
+      <!-- 顶部操作条 -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 20px; font-weight: 700; color: var(--text-main); margin-bottom: 4px;">🛠️ 制作项目与套料包</h2>
+          <div style="font-size: 13px; color: var(--text-muted);">
+            面向具体硬件项目的备料闭环 · 智能预留锁定防冲突 · 齐套进度跟踪 · 焊接完工一键正式消库
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn-apple-primary" id="btn-new-project" style="padding: 7px 16px; font-size: 13px; font-weight: 600;">
+            ＋ 新建制作项目
+          </button>
+          <button type="button" class="filter-tag" id="btn-refresh-projects" title="刷新项目列表" style="margin-bottom: 0;">
+            🔄 刷新
+          </button>
+        </div>
+      </div>
+
+      <!-- 极简高密度控制过滤条 (数量融入状态胶囊 + 实时秒搜) -->
+      <div class="projects-control-bar" style="margin-bottom: 16px;">
+        <div class="projects-filter-pills" id="projects-filter-pills">
+          <button type="button" class="filter-tab-pill active" data-filter="all" onclick="setProjectFilter('all')">
+            全部 (<span id="pill-count-all">0</span>)
+          </button>
+          <button type="button" class="filter-tab-pill" data-filter="READY" onclick="setProjectFilter('READY')">
+            <span class="dot-indicator green"></span> 料已齐套 (<span id="pill-count-ready">0</span>)
+          </button>
+          <button type="button" class="filter-tab-pill" data-filter="PREPARING" onclick="setProjectFilter('PREPARING')">
+            <span class="dot-indicator amber"></span> 缺料筹备中 (<span id="pill-count-prep">0</span>)
+          </button>
+          <button type="button" class="filter-tab-pill" data-filter="BUILDING" onclick="setProjectFilter('BUILDING')">
+            <span class="dot-indicator blue"></span> 组装焊接中 (<span id="pill-count-build">0</span>)
+          </button>
+          <button type="button" class="filter-tab-pill" data-filter="COMPLETED" onclick="setProjectFilter('COMPLETED')">
+            ✔ 已完工 (<span id="pill-count-done">0</span>)
+          </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="boxes-search-box" style="width: 200px; height: 32px; padding: 2px 8px;">
+            <span style="font-size: 12px; color: var(--text-dim);">🔍</span>
+            <input type="text" id="projects-search-input" class="boxes-search-input" placeholder="秒搜项目名、物料..." style="font-size: 12px;" autocomplete="off">
+            <button type="button" id="btn-projects-search-clear" class="boxes-search-clear" style="display: none;" onclick="clearProjectsSearch()">✕</button>
+          </div>
+          <button type="button" class="btn-apple-primary" id="btn-new-project" style="padding: 6px 14px; font-size: 12.5px; font-weight: 600;">
+            ＋ 新建项目
+          </button>
+          <button type="button" class="filter-tag" id="btn-refresh-projects" title="刷新项目列表" style="margin-bottom: 0;">
+            🔄
+          </button>
+        </div>
+      </div>
+
+      <!-- 项目卡片网格 -->
+      <div class="project-cards-grid" id="projects-cards-container">
+        <!-- 动态加载各项目卡片 -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 侧滑抽屉 1: 记一笔 / 快速录入 ==================== -->
+  <div class="drawer-backdrop" id="drawer-entry-backdrop" onclick="closeDrawer('drawer-entry-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()">
+      <div class="drawer-header" style="justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="drawer-title" style="margin-bottom: 0;">⚡ 工坊单件速记入库</div>
+          <label style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: var(--text-muted); cursor: pointer; user-select: none;">
+            <input type="checkbox" id="chk-continuous-mode" checked style="accent-color: var(--accent); cursor: pointer;">
+            <span>连续录入 (不关面板)</span>
+          </label>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('drawer-entry-backdrop')" title="关闭面板 (Esc)">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- 顶部双模式切换条 (Segmented Mode Tabs) -->
+        <div class="entry-mode-tabs-bar" style="margin-bottom: 14px;">
+          <button type="button" class="entry-mode-tab-btn active" id="tab-entry-single" onclick="switchEntryMode('single')">
+            <span class="mode-tab-title">⚡ 极速单条</span>
+            <span class="mode-tab-sub">单件盲打</span>
+          </button>
+          <button type="button" class="entry-mode-tab-btn" id="tab-entry-scratchpad" onclick="switchEntryMode('scratchpad')">
+            <span class="mode-tab-title">📝 随手记便签</span>
+            <span class="mode-tab-sub">自由文本 / 批量排队</span>
+          </button>
+        </div>
+
+        <!-- ==================== 模式 1: 极速单条 (Apple 仪表盘大字确认卡) ==================== -->
+        <div id="view-entry-single">
+          <!-- 全能 Omnibox 单行速记输入框 -->
+          <div class="drawer-form-group" style="margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="drawer-label" style="margin-bottom: 0;">全能速记：型号、阻容、贴片丝印、数量与位置</label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span class="spotlight-kbd" style="font-size: 10px; padding: 1px 5px;" title="快捷键提示">Enter 识别 · Ctrl+Enter 存入</span>
+                <button type="button" class="icon-btn-minimal" id="btn-toggle-camera" style="font-size: 12px; width: auto; padding: 2px 8px; height: 22px; border: 1px solid var(--border-subtle); border-radius: 12px;" title="使用手机摄像头扫码">📷 扫码</button>
+              </div>
+            </div>
+
+            <!-- 摄像头扫码框 (折叠式) -->
+            <div id="scanner-box" style="display: none; margin-bottom: 12px; border-radius: 8px; overflow: hidden; background: #000; position: relative; aspect-ratio: 4/3;">
+              <video id="scanner-video" style="width: 100%; height: 100%; object-fit: cover;" playsinline></video>
+              <div style="position: absolute; inset: 20%; border: 2px solid #2383e2; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); pointer-events: none;"></div>
+            </div>
+
+            <div style="display: flex; gap: 8px; position: relative;">
+              <input type="text" id="entry-text-input" class="drawer-input" placeholder="例如: 10k 0805 100 A-01 或 A7 50 或 C2057" autocomplete="off" style="font-weight: 500;">
+              <button type="button" class="btn-apple-primary" id="btn-entry-parse" style="padding: 10px 16px; white-space: nowrap;">识别</button>
+            </div>
+
+            <!-- 智能切词拆解胶囊预览条 -->
+            <div id="omnibox-chips-bar" class="omnibox-chips-bar" style="display: none;"></div>
+
+            <!-- SMD 贴片丝印多候选胶囊选择条 -->
+            <div id="smd-candidates-bar" class="smd-candidates-bar" style="display: none;"></div>
+          </div>
+
+          <!-- 智能识别反馈区: 默认呼吸引导态 / 键入后展开 Apple 仪表盘大字确认卡片 -->
+          <div id="entry-card-container" style="margin-bottom: 16px;">
+            <!-- 1. 空状态: 呼吸引导与常见示例点选 -->
+            <div id="entry-card-empty" class="identity-empty-card">
+              <div style="font-size: 32px; margin-bottom: 8px;">⚡</div>
+              <div style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">键入型号、阻容或丝印代码开始</div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">支持输入单行速记、立创C编号或贴片微型代码，亦可点击下方示例直接体验</div>
+              <div class="quick-examples-pills">
+                <span class="example-pill" onclick="fillQuickExample('10k 0805 100 A-01')">10k 0805 100 A-01</span>
+                <span class="example-pill" onclick="fillQuickExample('C2057 50')">C2057 50</span>
+                <span class="example-pill" onclick="fillQuickExample('A7 100')">A7 100 (开关二极管)</span>
+                <span class="example-pill" onclick="fillQuickExample('AMS1117-3.3 20')">AMS1117-3.3 20</span>
+              </div>
+            </div>
+
+            <!-- 2. 确认态: Apple 仪表盘式元器件身份与装盒大字确认卡片 -->
+            <div id="entry-card-active" class="identity-active-card" style="display: none;">
+              <!-- 状态对账顶条 (全新料 / 已有库存合并) -->
+              <div id="card-status-bar" class="card-status-bar is-new">
+                <span id="card-status-icon">✨</span>
+                <span id="card-status-text">全新物料入库</span>
+              </div>
+
+              <!-- 核心品名大字区 -->
+              <div class="card-main-info">
+                <img id="card-thumb-img" src="" style="display: none;" class="card-thumb-img">
+                <div style="flex: 1; min-width: 0;">
+                  <div class="card-title-row">
+                    <span id="card-cat-icon" style="font-size: 22px;">⚡</span>
+                    <h2 id="card-title-text" class="card-title-text">10kΩ ±1%</h2>
+                  </div>
+                  <div id="card-chips-row" class="card-chips-row">
+                    <span class="sub-tag-pill" id="card-pkg-chip" style="font-family: var(--font-mono); font-weight: 600;">0805</span>
+                    <span class="sub-tag-pill" id="card-spec-chip" style="display: none;"></span>
+                    <span class="sub-tag-pill" id="card-lcsc-chip" style="display: none;"></span>
+                  </div>
+                  <div id="card-desc-text" class="card-desc-text">标准贴片厚膜电阻</div>
+                </div>
+              </div>
+
+              <!-- 双联实物归宿仪表 -->
+              <div class="dual-dashboard-grid">
+                <!-- 左联: 目标收纳盒 (大徽标可点击切盒，带图钉锁定和序号自增) -->
+                <div class="dual-tile-box" onclick="promptChangeLocation()" title="点击切换收纳盒">
+                  <div class="tile-header">
+                    <span class="tile-label">🗄️ 存放位置</span>
+                    <div style="display: flex; gap: 6px;" onclick="event.stopPropagation();">
+                      <label class="tile-pin-chk" title="固定当前收纳盒不变"><input type="checkbox" id="chk-pin-location" checked style="accent-color: var(--accent);"> 📌</label>
+                      <label class="tile-pin-chk" title="存完自动序号+1 (如 A-01 变 A-02)"><input type="checkbox" id="chk-auto-inc-location" style="accent-color: var(--accent);"> ⚡</label>
+                    </div>
+                  </div>
+                  <div class="tile-val-main" id="card-location-display">
+                    <span id="card-loc-text">贴片盒-R01</span>
+                    <span style="font-size: 11px; color: var(--accent); opacity: 0.8;">✏️</span>
+                  </div>
+                </div>
+
+                <!-- 右联: 本次入库数量 (大字呈现带步进器) -->
+                <div class="dual-tile-box">
+                  <div class="tile-header">
+                    <span class="tile-label">📦 本次数量</span>
+                    <span style="font-size: 11px; color: var(--text-dim);">件数</span>
+                  </div>
+                  <div class="tile-val-qty">
+                    <button type="button" class="tile-qty-btn" onclick="stepCardQty(-10)">−</button>
+                    <span id="card-qty-display" class="tile-qty-num">100</span>
+                    <button type="button" class="tile-qty-btn" onclick="stepCardQty(10)">＋</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 查重对账明细条 (仅命中已有物料时显示) -->
+              <div id="card-audit-box" class="card-audit-box" style="display: none;">
+                <span>现有 <strong id="audit-prev-qty">0</strong> 件 ＋ 本次 <strong id="audit-add-qty">100</strong> 件 ➔ 入库后将达 <strong id="audit-total-qty" style="color: var(--accent);">100</strong> 件</span>
+              </div>
+
+              <!-- 主存入按钮操作组 -->
+              <div style="display: flex; gap: 8px; margin-top: 14px;">
+                <button type="button" id="btn-card-submit" class="btn-apple-primary" style="flex: 1; padding: 12px; font-size: 14px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="submitCurrentCard(false)">
+                  <span id="card-btn-text">✔ 确认存入</span>
+                  <span class="spotlight-kbd" style="font-size: 10px; background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.3); color: #fff;">Ctrl+Enter</span>
+                </button>
+                <button type="button" id="btn-card-new-box" class="btn-apple-secondary" style="display: none; padding: 12px 14px; font-size: 12px; white-space: nowrap;" onclick="submitCurrentCard(true)" title="另存为新盒 (Alt+N)">另存新盒</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 可选折叠区: 更多专业参数微调 (默认完全收起，95%无需展开) -->
+          <div class="advanced-params-section" style="margin-bottom: 16px;">
+            <div class="advanced-toggle-btn" id="btn-toggle-advanced" onclick="toggleAdvancedDrawer()">
+              <span id="advanced-toggle-icon">▼</span>
+              <span>更多专业参数 (耐压/精度/厂家/备注)</span>
+            </div>
+            <div id="advanced-drawer-body" class="advanced-drawer-body" style="display: none;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                <div>
+                  <label class="drawer-label" style="font-size: 11px;">元器件类别</label>
+                  <select id="input-category" class="drawer-input" style="padding: 6px 8px; font-size: 12px;">
+                    <option value="电阻">电阻</option>
+                    <option value="电容">电容</option>
+                    <option value="电感">电感</option>
+                    <option value="芯片">芯片</option>
+                    <option value="二极管">二极管</option>
+                    <option value="三极管/MOS">三极管/MOS</option>
+                    <option value="接插件">接插件</option>
+                    <option value="模块">模块</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="drawer-label" style="font-size: 11px;">封装规格</label>
+                  <input type="text" id="input-package" class="drawer-input" style="padding: 6px 8px; font-size: 12px;" placeholder="如: 0805, SOT-23">
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                <div>
+                  <label class="drawer-label" style="font-size: 11px;">标称阻容/参数</label>
+                  <input type="text" id="input-param-val" class="drawer-input" style="padding: 6px 8px; font-size: 12px;" placeholder="如: 10k, 100nF">
+                </div>
+                <div>
+                  <label class="drawer-label" style="font-size: 11px;">耐压或精度</label>
+                  <input type="text" id="input-voltage-tol" class="drawer-input" style="padding: 6px 8px; font-size: 12px;" placeholder="如: 50V 或 ±1%">
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+                <div>
+                  <label class="drawer-label" style="font-size: 11px;">立创编号 (C编号)</label>
+                  <input type="text" id="input-lcsc" class="drawer-input" style="padding: 6px 8px; font-size: 12px;" placeholder="如: C2057">
+                </div>
+                <div>
+                  <label class="drawer-label" style="font-size: 11px;">随手存放位置</label>
+                  <input type="text" id="input-location" class="drawer-input" style="padding: 6px 8px; font-size: 12px;" placeholder="如: 贴片盒-R01">
+                </div>
+              </div>
+
+              <div style="margin-bottom: 8px;">
+                <label class="drawer-label" style="font-size: 11px;">自由补充备注</label>
+                <input type="text" id="input-notes" class="drawer-input" style="padding: 6px 8px; font-size: 12px;" placeholder="随手备注，如: 淘宝买的剪带">
+              </div>
+
+              <div class="location-capsule-bar" id="entry-location-capsules" style="margin-bottom: 0;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ==================== 模式 2: 多行随手记 (自由文本 / 批量排队) ==================== -->
+        <div id="view-entry-scratchpad" style="display: none;">
+          <!-- 自由便签文本框 -->
+          <div class="scratchpad-box" style="margin-bottom: 14px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="drawer-label" style="margin-bottom: 0;">自由草稿纸：随意粘贴多行清单、电商商品标题或自然口语段落</label>
+              <span class="spotlight-kbd" style="font-size: 10px; padding: 1px 5px;">Ctrl+Enter 拆解</span>
+            </div>
+            <textarea id="scratchpad-textarea" class="scratchpad-textarea" rows="4" placeholder="支持任意格式混写，例如：&#10;10k 0805 100 A-01&#10;贴片厚膜电阻 0805 10K 1% 100只 厚声 全新原装 正品&#10;今天到了50个AMS1117-3.3放贴片盒2，另外买了20片STM32F103C8T6在抽屉3"></textarea>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; flex-wrap: wrap; gap: 8px;">
+              <!-- 快捷真实场景示例点选 -->
+              <div class="scratchpad-example-chips">
+                <span class="scratchpad-example-pill" onclick="fillScratchpadExample('multi')">示例 1: 多行工坊速记</span>
+                <span class="scratchpad-example-pill" onclick="fillScratchpadExample('taobao')">示例 2: 电商商品长标题</span>
+                <span class="scratchpad-example-pill" onclick="fillScratchpadExample('natural')">示例 3: 连贯口语自然段落</span>
+              </div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="btn-apple-secondary" id="btn-scratchpad-clear" style="font-size: 11.5px; padding: 5px 10px;" onclick="clearScratchpad()">清空</button>
+                <button type="button" class="btn-apple-primary" id="btn-scratchpad-parse" style="font-size: 12px; padding: 6px 14px; font-weight: 600;" onclick="triggerParseScratchpad()">⚡ 智能拆解并排队</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 待入库卡片队列容器 (Queue Section) -->
+          <div id="scratchpad-queue-section" class="scratchpad-queue-section" style="display: none; margin-bottom: 16px;">
+            <div class="scratchpad-queue-header">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">📋 待入库卡片队列</span>
+                <span class="sub-tag-pill" id="queue-stat-badge" style="font-size: 11px; font-weight: 600; color: #2563eb; background: rgba(37,99,235,0.08);">0 项 (0 件)</span>
+              </div>
+              <button type="button" id="btn-queue-submit-all" class="btn-apple-primary" style="padding: 7px 14px; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 6px;" onclick="submitScratchpadQueue()">
+                <span>✔ 全部存入</span>
+                <span class="spotlight-kbd" style="font-size: 9px; background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.3); color: #fff;">Ctrl+Enter</span>
+              </button>
+            </div>
+
+            <!-- 卡片队列流 -->
+            <div id="scratchpad-queue-list" class="scratchpad-queue-list">
+              <!-- 动态渲染队列卡片 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 隐藏表单实体 (供程序后台存取与验证) -->
+        <form id="form-entry" style="display: none;">
+          <input type="text" id="input-name">
+          <input type="number" id="input-quantity" value="100">
+          <input type="hidden" id="input-std-val">
+          <input type="hidden" id="input-unit">
+          <input type="hidden" id="input-voltage">
+          <input type="hidden" id="input-tolerance">
+          <input type="hidden" id="input-image-url">
+          <input type="hidden" id="input-datasheet-url">
+        </form>
+
+        <!-- 本次连续录入历史流水区 -->
+        <div id="continuous-history-section" class="continuous-history-section" style="margin-top: 24px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-top: 14px; border-top: 1px dashed var(--border-subtle);">
+            <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+              <span>📋 本次连录流水</span>
+              <span class="sub-tag-pill" id="continuous-history-count" style="font-size: 10px;">0 项</span>
+            </div>
+            <button type="button" class="btn-apple-secondary" id="btn-clear-continuous-history" style="font-size: 10.5px; padding: 2px 6px; display: none;" onclick="clearContinuousHistory()">清空记录</button>
+          </div>
+          <div id="continuous-history-list" class="continuous-history-list">
+            <div style="font-size: 11.5px; color: var(--text-dim); text-align: center; padding: 12px 0;">暂无连录记录，敲入参数后按 Ctrl+Enter 开始极速录入</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 侧滑抽屉 2: 元件官方详情与规格书 ==================== -->
+  <div class="drawer-backdrop" id="drawer-detail-backdrop" onclick="closeDrawer('drawer-detail-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()">
+      <div class="drawer-header">
+        <div class="drawer-title" id="detail-drawer-title">元器件官方详情与规格</div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('drawer-detail-backdrop')">✕</button>
+      </div>
+
+      <div class="drawer-body">
+        <!-- 官方品相展示卡 -->
+        <div style="background: var(--bg-subtle); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px; border: 1px solid var(--border-subtle);">
+          <img id="detail-comp-img" src="" style="width: 110px; height: 110px; object-fit: contain; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-surface); margin-bottom: 12px; display: inline-block;">
+          <h3 id="detail-card-name" style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px;"></h3>
+          <div id="detail-card-brand" style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px;"></div>
+          
+          <!-- 官方规格书直达大按钮 -->
+          <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+            <a id="detail-datasheet-btn" href="#" target="_blank" class="btn-apple-primary" style="text-decoration: none; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 8px 16px;">
+              <span>📄</span>
+              <span>查看官方规格书 / Datasheet ↗</span>
+            </a>
+            <button type="button" class="btn-apple-secondary" id="btn-detail-refresh-official" style="font-size: 13px; padding: 8px 12px;" title="联网重新匹配最新官方参数与高清实物图">
+              <span>⚡</span>
+              <span>同步官方</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 官方结构化参数表格 -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; margin-bottom: 24px;">
+          <div style="padding: 10px 16px; background: var(--bg-subtle); font-size: 12px; font-weight: 600; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle);">
+            技术规格与物理收纳参数
+          </div>
+          <div class="detail-spec-list">
+            <div class="spec-row">
+              <span class="spec-label">立创编号 (LCSC Part #)</span>
+              <span class="spec-value" id="spec-lcsc" style="color: var(--accent); font-weight: 600;">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">器件分类</span>
+              <span class="spec-value" id="spec-category">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">封装代码 (Footprint)</span>
+              <span class="spec-value" id="spec-package">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">规格数值 (Value)</span>
+              <span class="spec-value" id="spec-value">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">标准等效换算</span>
+              <span class="spec-value" id="spec-std-value">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">额定耐压 / 容差精度</span>
+              <span class="spec-value" id="spec-rating">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">📦 随手存放位置</span>
+              <span class="spec-value" id="spec-location" style="font-weight: 600; color: #b45309;">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">当前库存数量</span>
+              <span class="spec-value" id="spec-qty" style="font-weight: 700;">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">⚠️ 安全库存阈值</span>
+              <span class="spec-value" id="spec-min-stock">-</span>
+            </div>
+            <div class="spec-row">
+              <span class="spec-label">自由备注说明</span>
+              <span class="spec-value" id="spec-notes">-</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 可折叠的快速编辑与维护 -->
+        <details style="border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; background: var(--bg-surface);">
+          <summary style="font-size: 13px; font-weight: 500; cursor: pointer; color: var(--text-muted); outline: none;">
+            ✏ 点击修改基础信息或删除该物料
+          </summary>
+          <form id="form-edit-comp" style="margin-top: 14px;" novalidate>
+            <input type="hidden" id="detail-id">
+            
+            <div class="drawer-form-group">
+              <label class="drawer-label">元器件型号/品名</label>
+              <input type="text" id="detail-name" class="drawer-input" required>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="drawer-form-group">
+                <label class="drawer-label">分类</label>
+                <input type="text" id="detail-category" class="drawer-input">
+              </div>
+              <div class="drawer-form-group">
+                <label class="drawer-label">封装</label>
+                <input type="text" id="detail-package" class="drawer-input">
+              </div>
+            </div>
+
+            <!-- 详情编辑: 品类自适应专用参数面板 (动态展开) -->
+            <div id="detail-dynamic-specs-box" class="dynamic-specs-box" style="margin-bottom: 14px;">
+              <!-- 1. 电阻专用字段 -->
+              <div id="detail-specs-res" style="display: none;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                  <div class="drawer-form-group">
+                    <label class="drawer-label">标称阻值 ⚡</label>
+                    <input type="text" id="detail-res-val" class="drawer-input" placeholder="如: 10k, 4.7R, 100, 1M">
+                  </div>
+                  <div class="drawer-form-group">
+                    <label class="drawer-label">精度</label>
+                    <input type="text" id="detail-res-tol" class="drawer-input" placeholder="如: ±1%, 5%">
+                  </div>
+                </div>
+                <div id="detail-res-hint" class="spec-hint-text"></div>
+              </div>
+
+              <!-- 2. 电容专用字段 -->
+              <div id="detail-specs-cap" style="display: none;">
+                <div style="display: grid; grid-template-columns: 2fr 1.2fr 1fr; gap: 10px;">
+                  <div class="drawer-form-group">
+                    <label class="drawer-label">标称容值 🔋</label>
+                    <input type="text" id="detail-cap-val" class="drawer-input" placeholder="如: 100nF, 10uF, 22pF">
+                  </div>
+                  <div class="drawer-form-group">
+                    <label class="drawer-label">额定耐压</label>
+                    <input type="number" id="detail-cap-volt" class="drawer-input" placeholder="如: 50" min="0">
+                  </div>
+                  <div class="drawer-form-group">
+                    <label class="drawer-label">介质/精度</label>
+                    <input type="text" id="detail-cap-tol" class="drawer-input" placeholder="如: X7R, 10%">
+                  </div>
+                </div>
+                <div id="detail-cap-hint" class="spec-hint-text"></div>
+              </div>
+
+              <!-- 3. 电感专用字段 -->
+              <div id="detail-specs-ind" style="display: none;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                  <div class="drawer-form-group">
+                    <label class="drawer-label">标称电感 🌀</label>
+                    <input type="text" id="detail-ind-val" class="drawer-input" placeholder="如: 10uH, 4.7uH, 100nH">
+                  </div>
+                  <div class="drawer-form-group">
+                    <label class="drawer-label">额定电流</label>
+                    <input type="text" id="detail-ind-current" class="drawer-input" placeholder="如: 2A, 1.5A">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4. 芯片/其他功能描述 -->
+              <div id="detail-specs-other" style="display: none;">
+                <div class="drawer-form-group">
+                  <label class="drawer-label">核心特性 / 功能简述</label>
+                  <input type="text" id="detail-other-val" class="drawer-input" placeholder="如: 32位MCU 64KB Flash, 5V转3.3V LDO 1A, N-MOS 30V">
+                </div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="drawer-form-group">
+                <label class="drawer-label">库存数量</label>
+                <input type="number" id="detail-quantity" class="drawer-input" required min="0">
+              </div>
+              <div class="drawer-form-group">
+                <label class="drawer-label">立创编号</label>
+                <input type="text" id="detail-lcsc" class="drawer-input">
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="drawer-form-group">
+                <label class="drawer-label">随手存放位置</label>
+                <input type="text" id="detail-location" class="drawer-input">
+              </div>
+              <div class="drawer-form-group">
+                <label class="drawer-label">安全库存阈值</label>
+                <input type="number" id="detail-min-stock" class="drawer-input" min="0" placeholder="留空则智能默认">
+              </div>
+            </div>
+
+            <div class="drawer-form-group">
+              <label class="drawer-label">备注说明</label>
+              <input type="text" id="detail-notes" class="drawer-input">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-top: 18px;">
+              <button type="button" class="btn-apple-primary" id="btn-save-comp" style="flex: 1;" onclick="saveComponentDetail()">保存更改</button>
+              <button type="button" class="btn-apple-secondary" id="btn-delete-comp" style="color: var(--badge-lack-text);" onclick="deleteCurrentComponent()">删除</button>
+            </div>
+          </form>
+        </details>
+
+        <!-- 出入库流水记录时间轴 -->
+        <div style="margin-top: 18px; border-top: 1px solid var(--border-subtle); padding-top: 16px;">
+          <div style="font-size: 13px; font-weight: 600; color: var(--text-main); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>📜 出入库变更流水</span>
+            <span style="font-size: 11px; color: var(--text-dim);" id="detail-logs-count-text">暂无历史记录</span>
+          </div>
+          <div id="detail-logs-timeline" style="display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto;">
+            <!-- 动态渲染单品时间轴 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 照单拿料清单弹窗 (Apple Checklist 带进度条) ==================== -->
+  <div class="drawer-backdrop" id="modal-picking-backdrop" onclick="closeDrawer('modal-picking-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()" style="max-width: 580px;">
+      <div class="drawer-header">
+        <div class="drawer-title" style="display: flex; align-items: center; gap: 8px;">
+          <span>📦 照单拣料助手</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-picking-backdrop')">✕</button>
+      </div>
+      <div class="drawer-body">
+        <!-- 实时拣料进度卡片 -->
+        <div class="picking-progress-card">
+          <div class="picking-progress-text">
+            <span>拣料核对进度</span>
+            <strong id="picking-progress-label">0 / 0 项 (0%)</strong>
+          </div>
+          <div class="picking-progress-track">
+            <div id="picking-progress-fill" class="picking-progress-fill" style="width: 0%;"></div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <p style="font-size: 12px; color: var(--text-dim); margin: 0;">
+            已按物理收纳盒聚合分组，拿完一盒打勾划掉：
+          </p>
+          <button type="button" class="btn-apple-secondary" id="btn-copy-picking-list" style="font-size: 11px; padding: 4px 8px;" onclick="copyPickingListText()">
+            📋 复制清单
+          </button>
+        </div>
+
+        <div id="picking-grouped-container">
+          <!-- 动态渲染按位置分组的清单 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 缺料采购助手模态框 ==================== -->
+  <div class="center-modal-backdrop" id="modal-bom-purchase-backdrop" onclick="closeDrawer('modal-bom-purchase-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 620px; height: 520px;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">🛒 缺料采购助手</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-bom-purchase-backdrop')" title="关闭">✕</button>
+      </div>
+      <div class="taobao-body-wrap" style="padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+        <div id="bom-purchase-summary-banner" style="background: rgba(220, 38, 38, 0.05); border: 1px solid rgba(220, 38, 38, 0.15); border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #dc2626; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <span id="bom-purchase-summary-text">共缺 0 种元器件，需采购 0 件</span>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-apple-primary" id="btn-copy-purchase-text" style="font-size: 12px; padding: 5px 12px;" onclick="copyPurchaseText()">
+              📋 复制采购文本
+            </button>
+            <button type="button" class="btn-apple-secondary" id="btn-download-purchase-csv" style="font-size: 12px; padding: 5px 12px;" onclick="downloadPurchaseCSV()">
+              📥 导出 CSV
+            </button>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: var(--text-dim);">
+          格式化采购文本已为立创商城批量搜索与淘宝采购优化，可直接一键复制粘贴：
+        </div>
+        <textarea id="bom-purchase-preview-textarea" class="rule-textarea" style="flex: 1; min-height: 250px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6;" readonly></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== BOM 投产出库安全确认模态框 ==================== -->
+  <div class="center-modal-backdrop" id="modal-bom-deduct-backdrop" onclick="closeDrawer('modal-bom-deduct-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 660px; height: 500px;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">⚡ BOM 投产一键出库确认</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-bom-deduct-backdrop')" title="关闭">✕</button>
+      </div>
+      <div class="taobao-body-wrap" style="padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px;">
+        <div style="font-size: 13px; color: var(--text-muted);">
+          将为本次 BOM 投产从库存扣减以下现货元器件（自动记录出库流水）：
+        </div>
+        <div style="flex: 1; overflow-y: auto; border: 1px solid var(--border-subtle); border-radius: 8px;">
+          <table class="bom-deduct-preview-table" style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background: var(--bg-surface-hover); border-bottom: 1px solid var(--border-subtle); color: var(--text-muted); text-align: left;">
+                <th style="padding: 8px 12px;">元件品名</th>
+                <th style="padding: 8px 12px; text-align: right;">扣减数量</th>
+                <th style="padding: 8px 12px; text-align: center;">库存变更</th>
+                <th style="padding: 8px 12px;">所在收纳盒</th>
+              </tr>
+            </thead>
+            <tbody id="bom-deduct-preview-tbody">
+              <!-- 动态预览行 -->
+            </tbody>
+          </table>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+          <button type="button" class="btn-apple-secondary" onclick="closeDrawer('modal-bom-deduct-backdrop')" style="font-size: 12px; padding: 7px 16px;">取消</button>
+          <button type="button" class="btn-apple-primary" id="btn-confirm-bom-deduct" style="font-size: 12px; padding: 7px 20px; font-weight: 600;" onclick="confirmBOMDeductExecution()">
+            ✔ 确认出库扣减
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 手机局域网二维码弹窗 ==================== -->
+  <div class="drawer-backdrop" id="modal-qr-backdrop" onclick="closeDrawer('modal-qr-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()" style="max-width: 380px;">
+      <div class="drawer-header">
+        <div class="drawer-title">📱 手机扫码访问</div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-qr-backdrop')">✕</button>
+      </div>
+      <div class="drawer-body" style="text-align: center;">
+        <div style="margin: 16px 0;" id="qr-image-wrapper">
+          <!-- 二维码图像 -->
+        </div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">手机连接同一 Wi-Fi，扫码即可直接调取手机相机扫码</p>
+        <div id="qr-url-text" style="font-family: var(--font-mono); font-size: 12px; background: var(--bg-subtle); padding: 8px; border-radius: 6px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 自封袋 / 零件盒 专业标签打印中心弹窗 ==================== -->
+  <div class="drawer-backdrop" id="modal-print-labels-backdrop" onclick="closeDrawer('modal-print-labels-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()" style="max-width: 960px; width: 95vw;">
+      <div class="drawer-header" style="position: sticky; top: 0; background: var(--bg-surface); z-index: 10;">
+        <div>
+          <div class="drawer-title" style="display: flex; align-items: center; gap: 8px;">
+            <span>🏷️ 自封袋与收纳标签打印中心</span>
+            <span class="sub-tag-pill" id="print-sheet-count-badge" style="font-size: 11px;">共 0 枚标签</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+            创客黄金紧凑自封袋标签 (48×28mm) · 型号大字一眼辨认 · 微信/相机扫码直达透视与出入库
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="btn-apple-primary" id="btn-trigger-print" style="padding: 7px 16px; font-size: 13px; font-weight: 600;">
+            🖨️ 调用系统打印
+          </button>
+          <button type="button" class="icon-btn-minimal" onclick="closeDrawer('modal-print-labels-backdrop')" title="关闭">✕</button>
+        </div>
+      </div>
+
+      <!-- 打印中心控制工具条 (切换 A4高密度拼版 与 小型热敏不干胶机) -->
+      <div class="print-center-toolbar">
+        <div class="print-mode-pill-group">
+          <button type="button" class="print-mode-btn active" id="btn-print-mode-a4" onclick="setPrintMode('a4')">
+            📄 A4 高密度拼版 (30枚/页 · 虚线裁切标)
+          </button>
+          <button type="button" class="print-mode-btn" id="btn-print-mode-thermal" onclick="setPrintMode('thermal')">
+            🏷️ 热敏标签机尺寸 (单标连续 · 撕下即贴)
+          </button>
+        </div>
+        <div id="print-mode-tip-text" style="font-size: 12px; color: var(--text-muted);">
+          已针对普通 A4 纸排版优化：5 列 × 6 行，黑白对比清晰，裁切即贴
+        </div>
+      </div>
+
+      <div class="drawer-body" style="background: var(--bg-subtle); padding: 18px; max-height: calc(85vh - 130px); overflow-y: auto;">
+        <!-- 可打印的标签纸容器 (根据模式动态挂载 .mode-a4 或 .mode-thermal) -->
+        <div id="printable-label-sheet" class="printable-sheet-container mode-a4">
+          <!-- 动态加载各自封袋黄金标签卡块 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 手机/桌面 透视箱视图 (Box X-Ray) ==================== -->
+  <div class="drawer-backdrop" id="modal-box-xray-backdrop" onclick="closeDrawer('modal-box-xray-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()" style="max-width: 580px; width: 95vw;">
+      <div class="drawer-header">
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="drawer-title" id="xray-box-title">📦 收纳盒</div>
+            <span class="sub-tag-pill" id="xray-item-count-pill">0 项物料</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+            实时动态透视 · 可就地增减余量或添加新物料
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn-apple-primary" id="btn-xray-add-comp" style="padding: 6px 12px; font-size: 12px;">
+            ＋ 往此盒加料
+          </button>
+          <button class="icon-btn-minimal" onclick="closeDrawer('modal-box-xray-backdrop')">✕</button>
+        </div>
+      </div>
+      <div class="drawer-body">
+        <div style="margin-bottom: 12px;">
+          <input type="text" id="xray-search-input" class="spotlight-input" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 8px 12px; width: 100%;" placeholder="在盒内快速搜寻型号、阻容..." autocomplete="off">
+        </div>
+        <div id="xray-items-list" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- 动态加载盒内所有元器件 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 全库出入库流水日志弹窗 ==================== -->
+  <div class="drawer-backdrop" id="modal-global-logs-backdrop" onclick="closeDrawer('modal-global-logs-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()" style="max-width: 640px; width: 95vw;">
+      <div class="drawer-header">
+        <div>
+          <div class="drawer-title">📜 全库出入库变更流水日志</div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-top: 2px;">
+            记录录入入库、就地加减、BOM投产扣料与采购补货全链路轨迹
+          </div>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-global-logs-backdrop')">✕</button>
+      </div>
+      <div class="drawer-body">
+        <div id="global-logs-container" style="display: flex; flex-direction: column; gap: 8px;">
+          <!-- 动态加载全库流水 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 弹窗 8: 淘宝订单智能批量导入 (居中对称工作台) ==================== -->
+  <div class="center-modal-backdrop" id="modal-taobao-backdrop" onclick="closeDrawer('modal-taobao-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()">
+      <!-- 头部 -->
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 16px; font-weight: 600; color: var(--text-main);">🛒 淘宝订单批量入库</span>
+          <span id="taobao-stat-summary-badge" class="sub-tag-pill" style="display: none; background: rgba(35, 131, 226, 0.08); color: var(--accent); font-weight: 600; padding: 2px 8px;">已解析 0 项</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn-apple-secondary" id="btn-taobao-open-history" style="font-size: 12px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px;" title="查看历史导入批次与一键撤销回滚">
+            <span>🕘</span><span>批次历史</span>
+          </button>
+          <button type="button" class="btn-apple-secondary" id="btn-taobao-open-rules" style="font-size: 12px; padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px;" title="自定义黑名单过滤与解析规则">
+            <span>⚙</span><span>规则配置</span>
+          </button>
+          <button class="icon-btn-minimal" onclick="closeDrawer('modal-taobao-backdrop')" title="关闭">✕</button>
+        </div>
+      </div>
+
+      <!-- 主体内容 -->
+      <div class="taobao-body-wrap">
+        <!-- 上传 / 快捷读取区 (居中纯净卡片) -->
+        <div id="taobao-dropzone" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-surface); border: 1px dashed var(--border-subtle); border-radius: 12px; padding: 48px 24px; text-align: center;">
+          <input type="file" id="taobao-file-input" accept=".xlsx,.xls,.csv" style="display: none;">
+          <div style="font-size: 40px; margin-bottom: 12px;">📑</div>
+          <div style="font-size: 16px; font-weight: 600; color: var(--text-main); margin-bottom: 6px;">
+            拖拽或上传淘宝订单表格 (Excel / CSV)
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 22px; max-width: 420px; line-height: 1.5;">
+            智能挖掘“50只/100只”包装倍数换算真实库存 · 自动识别订单号防重复导入 · 批次留痕与一键撤销
+          </div>
+          <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+            <button type="button" class="btn-apple-secondary" id="btn-taobao-pick-file" style="font-size: 13px; padding: 9px 18px;">
+              📁 选择本地文件
+            </button>
+            <button type="button" class="btn-apple-primary" id="btn-taobao-load-default" style="font-size: 13px; padding: 9px 20px;">
+              ⚡ 一键读取《订单数据.xlsx》
+            </button>
+          </div>
+        </div>
+
+        <!-- 结果展示工作台 (默认隐藏) -->
+        <div id="taobao-result-area" style="display: none; flex: 1; flex-direction: column; overflow: hidden; gap: 10px;">
+          <!-- 极简单行控制条 (Sub-bar) -->
+          <div class="taobao-sub-bar">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; color: var(--text-muted);">来源:</span>
+              <span id="taobao-filename-badge" style="font-size: 12px; font-family: var(--font-mono); color: var(--text-main); font-weight: 500;">订单数据.xlsx</span>
+              <button type="button" class="icon-btn-minimal" id="btn-taobao-reupload" style="font-size: 11px; width: auto; height: auto; padding: 2px 6px; border: 1px solid var(--border-subtle); border-radius: 4px;" title="换一个文件">换文件</button>
+            </div>
+            <!-- 快捷视图切换胶囊 -->
+            <div id="taobao-filter-pill-group" style="display: flex; align-items: center; gap: 4px;">
+              <button type="button" class="filter-tab-pill active" id="tab-filter-all" onclick="setTaobaoFilter('all')">全部</button>
+              <button type="button" class="filter-tab-pill" id="tab-filter-new" onclick="setTaobaoFilter('new')">待入库</button>
+              <button type="button" class="filter-tab-pill" id="tab-filter-dup" onclick="setTaobaoFilter('dup')" style="display: none;">⚠️ 已入库过 (0)</button>
+              <button type="button" class="filter-tab-pill" id="tab-filter-ignored" onclick="setTaobaoFilter('ignored')" style="display: none;">🚫 已忽略 (0)</button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="font-size: 12px; color: var(--text-muted);">全局收纳盒:</span>
+              <input type="text" id="taobao-import-location" class="drawer-input" value="淘宝待整理散料盒" style="width: 135px; padding: 3px 8px; font-size: 12px; height: 26px;" list="taobao-location-datalist" placeholder="选择或输入">
+              <datalist id="taobao-location-datalist"></datalist>
+              <div class="location-capsule-bar" id="taobao-location-capsules" style="margin: 0; display: inline-flex;"></div>
+            </div>
+          </div>
+
+          <!-- 核心 Pro Table 数据表格 -->
+          <div class="taobao-table-outer">
+            <table class="taobao-pro-table">
+              <thead>
+                <tr>
+                  <th style="width: 36px; text-align: center;">
+                    <input type="checkbox" id="taobao-select-all" title="全选 / 反选" style="cursor: pointer;">
+                  </th>
+                  <th style="min-width: 170px;">物料型号 / 品名</th>
+                  <th style="width: 120px;">分类 & 封装</th>
+                  <th style="min-width: 125px;">阻容物理规格</th>
+                  <th style="width: 105px;">采购折算</th>
+                  <th style="width: 90px; text-align: right;">入库数量</th>
+                  <th style="width: 115px; text-align: center;">动作</th>
+                  <th style="width: 145px;">目标收纳盒</th>
+                  <th style="width: 45px; text-align: center;">操作</th>
+                </tr>
+              </thead>
+              <tbody id="taobao-pro-table-tbody">
+                <!-- 动态渲染各行 -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 底部极简汇总与操作栏 -->
+          <div class="taobao-footer-bar">
+            <div id="taobao-selection-summary" style="font-size: 13px; color: var(--text-main);">
+              已选中 0 项 · 共计 0 件
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button type="button" class="btn-apple-secondary" id="btn-taobao-toggle-all" style="font-size: 12px; padding: 6px 12px;">反选</button>
+              <button type="button" class="btn-apple-secondary" onclick="closeDrawer('modal-taobao-backdrop')" style="font-size: 12px; padding: 6px 14px;">取消</button>
+              <button type="button" class="btn-apple-primary" id="btn-taobao-confirm-import" style="padding: 7px 20px; font-size: 13px; font-weight: 600;">
+                ✔ 确认批量入库
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 弹窗 9: 淘宝导入批次历史与整批撤销 ==================== -->
+  <div class="center-modal-backdrop" id="modal-taobao-history-backdrop" onclick="closeDrawer('modal-taobao-history-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 680px; height: 560px;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">🕘 淘宝批量导入批次历史与撤销</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-taobao-history-backdrop')" title="关闭">✕</button>
+      </div>
+      <div class="taobao-body-wrap" style="padding: 16px 20px; overflow-y: auto;">
+        <div style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">
+          记录历次批量导入快照。若误操作或导错表格，可一键整批撤销回滚库存并清除对应流水：
+        </div>
+        <div id="taobao-batches-list" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- 动态加载批次卡片 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 弹窗 10: 淘宝智能解析与黑白名单配置 ==================== -->
+  <div class="center-modal-backdrop" id="modal-taobao-rules-backdrop" onclick="closeDrawer('modal-taobao-rules-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 620px; height: 600px;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">⚙ 淘宝智能解析与黑白名单配置</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-taobao-rules-backdrop')" title="关闭">✕</button>
+      </div>
+      <div class="taobao-body-wrap" style="padding: 18px 22px; overflow-y: auto;">
+        <!-- 1. 过滤黑名单 -->
+        <div class="rule-section-card">
+          <div class="rule-section-title">
+            <span>🚫 忽略黑名单关键词</span>
+          </div>
+          <div class="rule-section-desc">
+            商品标题或型号包含以下关键词时自动识别为杂项，标记忽略并不默认勾选入库 (用逗号或空格隔开)：
+          </div>
+          <textarea id="rule-input-ignore" class="rule-textarea" placeholder="如: 赠品, 运费, 测试架, 补差价, 包装袋..."></textarea>
+        </div>
+
+        <!-- 2. 标题清洗噪声词 -->
+        <div class="rule-section-card">
+          <div class="rule-section-title">
+            <span>🧹 营销干扰词清洗名单</span>
+          </div>
+          <div class="rule-section-desc">
+            解析时自动剔除的电商店铺宣传前缀与形容词，保留干净物料品名 (用逗号或空格隔开)：
+          </div>
+          <textarea id="rule-input-clean" class="rule-textarea" placeholder="如: 原装正品, 包邮, 大特价, 冲量, 热卖..."></textarea>
+        </div>
+
+        <!-- 3. 分类默认推荐收纳盒 -->
+        <div class="rule-section-card">
+          <div class="rule-section-title">
+            <span>📦 分类智能推荐收纳盒</span>
+          </div>
+          <div class="rule-section-desc">
+            当现有库存中无同款物料时，根据元器件品类自动预选目标收纳盒：
+          </div>
+          <div id="rule-category-box-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <!-- 动态生成分类映射输入框 -->
+          </div>
+        </div>
+
+        <!-- 底部保存/重置 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+          <button type="button" class="btn-apple-secondary" id="btn-taobao-rule-reset" style="font-size: 12px; padding: 7px 14px;">
+            ↺ 恢复默认配置
+          </button>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn-apple-secondary" onclick="closeDrawer('modal-taobao-rules-backdrop')" style="font-size: 12px; padding: 7px 14px;">取消</button>
+            <button type="button" class="btn-apple-primary" id="btn-taobao-rule-save" style="font-size: 12px; padding: 7px 18px; font-weight: 600;">
+              ✔ 保存规则并生效
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模态框: 新建制作项目 ==================== -->
+  <div class="center-modal-backdrop" id="modal-create-project-backdrop" onclick="closeDrawer('modal-create-project-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 480px; height: auto;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">🛠️ 新建硬件制作项目</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-create-project-backdrop')">✕</button>
+      </div>
+      <div style="padding: 20px;">
+        <div class="drawer-form-group">
+          <label class="drawer-label">项目名称 / 作品名称</label>
+          <input type="text" id="input-project-name" class="drawer-input" placeholder="例如: 开源机械键盘 V1.0" required>
+        </div>
+        <div class="drawer-form-group">
+          <label class="drawer-label">计划制作套数 (板子数量)</label>
+          <input type="number" id="input-project-target-qty" class="drawer-input" value="1" min="1" required>
+        </div>
+        <div class="drawer-form-group">
+          <label class="drawer-label">项目简介或说明 (可选)</label>
+          <textarea id="input-project-desc" class="drawer-input" rows="3" placeholder="例如: 采用STM32主控，包含70颗RGB轴座..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+          <button type="button" class="btn-apple-secondary" onclick="closeDrawer('modal-create-project-backdrop')">取消</button>
+          <button type="button" class="btn-apple-primary" onclick="submitCreateProjectForm()">创建项目</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模态框: 项目套料清单与两阶段管理 ==================== -->
+  <div class="drawer-backdrop" id="modal-project-detail-backdrop" onclick="closeDrawer('modal-project-detail-backdrop')">
+    <div class="drawer-panel" onclick="event.stopPropagation()" style="max-width: 860px; width: 95vw;">
+      <div class="drawer-header" style="position: sticky; top: 0; background: var(--bg-surface); z-index: 10;">
+        <div>
+          <div class="drawer-title" id="detail-project-title">🛠️ 制作项目详情</div>
+          <div style="font-size: 12px; color: var(--text-dim); margin-top: 2px;" id="detail-project-target-text">
+            目标制作: 1 套 · 智能锁定与消库管理
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="btn-apple-secondary" id="btn-detail-export-purchase" onclick="handleExportProjectPurchase(currentDetailProject ? currentDetailProject.id : 0)" style="font-size: 12px; padding: 6px 12px;">
+            🛒 导出缺料单
+          </button>
+          <button type="button" class="btn-apple-secondary" id="btn-detail-print-label" onclick="openProjectKitLabelModal(currentDetailProject ? currentDetailProject.id : 0)" style="font-size: 12px; padding: 6px 12px; color: #7c3aed;" title="打印套料袋专属标签">
+            🏷️ 套料袋标签
+          </button>
+          <button type="button" class="btn-apple-secondary" id="btn-detail-unlock-stock" onclick="handleUnlockProjectStock(currentDetailProject ? currentDetailProject.id : 0)" style="font-size: 12px; padding: 6px 12px;">
+            🔓 释放预锁
+          </button>
+          <button type="button" class="btn-apple-secondary" id="btn-detail-lock-stock" onclick="handleLockProjectStock(currentDetailProject ? currentDetailProject.id : 0)" style="font-size: 12px; padding: 6px 12px; color: #0284c7;">
+            🔒 重新预锁
+          </button>
+          <button type="button" class="btn-apple-primary" id="btn-detail-complete-project" onclick="handleCompleteProject(currentDetailProject ? currentDetailProject.id : 0)" style="font-size: 12px; padding: 6px 16px; font-weight: 600;">
+            ✔ 完工并消库
+          </button>
+          <button class="icon-btn-minimal" onclick="closeDrawer('modal-project-detail-backdrop')">✕</button>
+        </div>
+      </div>
+
+      <div class="drawer-body" style="padding: 16px;">
+        <!-- 动态添加元器件工作条 (直面痛点: 解决方案B手动加料) -->
+        <div id="project-detail-add-section" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">＋ 为本项目添加所需元器件</span>
+              <span style="font-size: 11px; color: var(--text-dim);">支持从现有自封袋库存中搜索关联，或直接手打速记</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" class="filter-tab-pill active" id="btn-add-mode-stock" onclick="switchProjectAddMode('stock')">🔍 从库存挑选</button>
+              <button type="button" class="filter-tab-pill" id="btn-add-mode-free" onclick="switchProjectAddMode('free')">⚡ 自由手打</button>
+            </div>
+          </div>
+
+          <!-- 模式 1: 从库存挑选 -->
+          <div id="add-mode-stock-box" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div style="flex: 2; min-width: 200px; position: relative;">
+              <input type="text" id="project-add-search-input" class="drawer-input" placeholder="输入型号、阻容或立创C编号搜索现有库存..." autocomplete="off">
+              <input type="hidden" id="project-add-comp-id">
+              <input type="hidden" id="project-add-comp-name">
+              <input type="hidden" id="project-add-comp-pkg">
+              <div id="project-add-suggestions" class="omnibox-dropdown" style="display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 50; max-height: 220px; overflow-y: auto; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 6px; box-shadow: var(--shadow-md);"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span style="font-size: 11px; color: var(--text-dim);">单板需:</span>
+              <input type="number" id="project-add-unit-qty" class="drawer-input" value="1" min="1" style="width: 65px; text-align: center;">
+            </div>
+            <input type="text" id="project-add-desig" class="drawer-input" placeholder="位号 (如R1,R2)" style="flex: 1; min-width: 100px;">
+            <button type="button" class="btn-apple-primary" onclick="submitAddProjectItemStock()" style="padding: 7px 14px; font-size: 12px; white-space: nowrap;">＋ 确认加入</button>
+          </div>
+
+          <!-- 模式 2: 自由手打模式 -->
+          <div id="add-mode-free-box" style="display: none; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="project-add-free-text" class="drawer-input" placeholder="例如: 10k 0805 2 R1,R2 或 AMS1117-3.3 1 U1" style="flex: 1; min-width: 250px;">
+            <button type="button" class="btn-apple-primary" onclick="submitAddProjectItemFree()" style="padding: 7px 16px; font-size: 12px; white-space: nowrap;">⚡ 解析并加入</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 13px; font-weight: 600; color: var(--text-main);">📋 项目套料明细清单</span>
+          <button type="button" class="btn-apple-secondary" onclick="handleDeleteProject(currentDetailProject ? currentDetailProject.id : 0)" style="color: #dc2626; font-size: 11px; padding: 3px 8px;">
+            🗑️ 删除项目
+          </button>
+        </div>
+
+        <div style="overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: 8px;">
+          <table class="project-detail-table">
+            <thead>
+              <tr>
+                <th style="width: 40px; text-align: center;">序号</th>
+                <th style="min-width: 160px;">元器件型号 / 规格</th>
+                <th style="width: 80px; text-align: center;">单板需求</th>
+                <th style="width: 80px; text-align: center;">总需求量</th>
+                <th style="width: 80px; text-align: center;">已预锁量</th>
+                <th style="min-width: 140px;">自封袋位置与可用</th>
+                <th style="width: 90px; text-align: center;">状态</th>
+                <th style="width: 50px; text-align: center;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="project-detail-items-tbody">
+              <!-- 动态加载明细行 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模态框: 从 BOM 存为制作项目清晰核对面板 ==================== -->
+  <div class="center-modal-backdrop" id="modal-save-bom-project-backdrop" onclick="closeDrawer('modal-save-bom-project-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 540px; height: auto;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">🛠️ 将 BOM 存为硬件制作项目</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-save-bom-project-backdrop')">✕</button>
+      </div>
+      <div style="padding: 20px;">
+        <div class="drawer-form-group" style="margin-bottom: 12px;">
+          <label class="drawer-label">项目名称 / 作品标识</label>
+          <input type="text" id="bom-project-name" class="drawer-input" placeholder="例如: 开源机械键盘 V1.0" required>
+        </div>
+
+        <div class="drawer-form-group" style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="drawer-label" style="margin-bottom: 0;">计划制作套数 (板子数量)</label>
+            <div style="display: flex; gap: 4px;">
+              <span class="sub-tag-pill" style="cursor: pointer;" onclick="setBOMTargetQty(1)">1套</span>
+              <span class="sub-tag-pill" style="cursor: pointer;" onclick="setBOMTargetQty(2)">2套</span>
+              <span class="sub-tag-pill" style="cursor: pointer;" onclick="setBOMTargetQty(3)">3套</span>
+              <span class="sub-tag-pill" style="cursor: pointer;" onclick="setBOMTargetQty(5)">5套</span>
+            </div>
+          </div>
+          <div class="stepper-control" style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="btn-apple-secondary" style="width: 36px; height: 36px; padding: 0; font-size: 16px; font-weight: 700;" onclick="changeBOMTargetQty(-1)">−</button>
+            <input type="number" id="bom-project-target-qty" class="drawer-input" value="1" min="1" style="text-align: center; font-size: 15px; font-weight: 700; font-family: var(--font-mono); width: 80px;" oninput="recalcSaveBOMModal()">
+            <button type="button" class="btn-apple-secondary" style="width: 36px; height: 36px; padding: 0; font-size: 16px; font-weight: 700;" onclick="changeBOMTargetQty(1)">＋</button>
+            <span style="font-size: 12px; color: var(--text-dim); margin-left: 6px;">套</span>
+          </div>
+        </div>
+
+        <div class="drawer-form-group" style="margin-bottom: 14px;">
+          <label class="drawer-label">项目说明备注 (选填)</label>
+          <input type="text" id="bom-project-desc" class="drawer-input" placeholder="随手备注，如: 本周末打板焊接第一批">
+        </div>
+
+        <!-- 实时对账汇总卡片 -->
+        <div id="bom-project-calc-summary" class="bom-calc-summary-card">
+          <!-- 动态加载对账结果 -->
+        </div>
+
+        <div style="margin: 14px 0 18px 0;">
+          <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-main); cursor: pointer; user-select: none;">
+            <input type="checkbox" id="bom-project-auto-lock" checked style="accent-color: var(--accent); width: 15px; height: 15px;">
+            <span style="font-weight: 500;">创建后立即根据现有库存预留锁定 (防止被其他制作抢占)</span>
+          </label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn-apple-secondary" onclick="closeDrawer('modal-save-bom-project-backdrop')">取消</button>
+          <button type="button" class="btn-apple-primary" id="btn-confirm-save-bom-project" onclick="submitSaveBOMProject()" style="padding: 8px 20px; font-weight: 600;">
+            ✔ 确认建档并存入项目
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模态框: 缺料智能替代料推荐面板 ==================== -->
+  <div class="center-modal-backdrop" id="modal-project-alternatives-backdrop" onclick="closeDrawer('modal-project-alternatives-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 620px; height: auto; max-height: 85vh; display: flex; flex-direction: column;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">💡 工坊可用替代料推荐</span>
+          <span class="sub-tag-pill" id="alt-modal-count-badge" style="font-size: 11px;">匹配中...</span>
+        </div>
+        <button class="icon-btn-minimal" onclick="closeDrawer('modal-project-alternatives-backdrop')">✕</button>
+      </div>
+      <div style="padding: 16px 20px; overflow-y: auto; flex: 1;">
+        <!-- 原需缺料信息卡 -->
+        <div id="alt-target-item-card" style="background: rgba(220, 38, 38, 0.05); border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+          <!-- 动态加载原物料信息 -->
+        </div>
+
+        <div style="font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 8px;">
+          🔍 工坊现有可平替候选元器件 (高耐压/同阻容/引脚兼容 · 现货充足):
+        </div>
+
+        <!-- 候选替代料列表容器 -->
+        <div id="alt-candidates-list" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- 动态加载候选卡片 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模态框: 项目套料袋专属标签打印 ==================== -->
+  <div class="center-modal-backdrop" id="modal-print-kit-label-backdrop" onclick="closeDrawer('modal-print-kit-label-backdrop')">
+    <div class="taobao-center-panel" onclick="event.stopPropagation()" style="max-width: 580px; height: auto;">
+      <div class="taobao-header-bar">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 15px; font-weight: 600; color: var(--text-main);">🏷️ 项目套料包自封袋标签</span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button type="button" class="btn-apple-primary" onclick="triggerKitLabelPrint()" style="padding: 6px 16px; font-size: 12.5px; font-weight: 600;">
+            🖨️ 调用打印机
+          </button>
+          <button class="icon-btn-minimal" onclick="closeDrawer('modal-print-kit-label-backdrop')">✕</button>
+        </div>
+      </div>
+      <div style="padding: 20px;">
+        <!-- 标签控制条 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 8px;">
+          <div style="font-size: 12px; color: var(--text-muted);">
+            标准自封袋标签 (50×30mm / 48×28mm) · 贴在袋子正面 · 扫码直达配料位号
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 11px; color: var(--text-dim);">打印份数:</span>
+            <input type="number" id="kit-label-print-copies" class="drawer-input" value="1" min="1" max="50" style="width: 55px; text-align: center; padding: 4px;" onchange="renderKitLabelCopies()">
+          </div>
+        </div>
+
+        <!-- 标签预览挂载容器 (支持用于 print 媒体打印) -->
+        <div id="kit-label-preview-wrapper" style="background: var(--bg-subtle); padding: 16px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 14px; overflow-y: auto; max-height: 400px;">
+          <!-- 动态渲染套料标签卡片 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 轻量全局悬浮提示 (Apple Toast) -->
+  <div id="apple-toast" class="apple-toast"></div>
+
+  <!-- 自定义 Notion 风格收纳盒毛玻璃弹出层 -->
+  <div id="box-custom-popover" class="custom-box-popover"></div>
+
+  <!-- 脚本加载 -->
+  <script src="js/scanner.js?v=20261006_project_v2"></script>
+  <script src="js/bomView.js?v=20261006_project_v2"></script>
+  <script src="js/boxesView.js?v=20261006_project_v2"></script>
+  <script src="js/projectsView.js?v=20261006_project_v2"></script>
+  <script src="js/app.js?v=20261006_project_v2"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# 依赖包
+node_modules/
+
+# 数据库（含个人库存数据，不上传）
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# 淘宝订单原始文件（含个人信息）
+订单数据.xlsx
+淘宝订单.xlsx
+订单.xlsx
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# 日志
+*.log
+npm-debug.log*
+
+# 环境变量
+.env
+.env.local
