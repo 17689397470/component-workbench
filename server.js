@@ -865,48 +865,6 @@ app.get('/api/projects/:id/label', async (req, res) => {
   }
 });
 
-// 38. 全量数据备份下载（含所有表：库存/日志/批次/项目）
-app.get('/api/backup/export', async (req, res) => {
-  try {
-    const backup = await db.exportFullBackup();
-    const filename = `component-workbench-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.send(JSON.stringify(backup, null, 2));
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 39. 全量数据恢复导入（覆盖式，清空后重建）
-app.post('/api/backup/restore', upload.single('backupFile'), async (req, res) => {
-  try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ success: false, error: '未接收到备份文件' });
-    }
-    let backup;
-    try {
-      backup = JSON.parse(req.file.buffer.toString('utf8'));
-    } catch (e) {
-      return res.status(400).json({ success: false, error: '备份文件 JSON 解析失败，请确认文件完整性' });
-    }
-
-    if (!backup.tables || typeof backup.tables !== 'object') {
-      return res.status(400).json({ success: false, error: '备份文件格式不正确（缺少 tables 字段）' });
-    }
-
-    const stats = await db.importFullBackup(backup);
-    res.json({
-      success: true,
-      message: '数据恢复成功！',
-      exported_at: backup.exported_at || '未知',
-      stats
-    });
-  } catch (err) {
-    res.status(500).json({ success: false, error: `恢复失败: ${err.message}` });
-  }
-});
-
 // 兜底单页路由
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

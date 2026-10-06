@@ -2472,59 +2472,6 @@ function initPresetAndBackup() {
   document.getElementById('btn-export-excel').addEventListener('click', () => {
     window.location.href = '/api/components/export?format=excel';
   });
-
-  // 全量备份下载
-  document.getElementById('btn-backup-full').addEventListener('click', () => {
-    window.location.href = '/api/backup/export';
-  });
-
-  // 恢复备份 — 触发文件选择
-  const inputRestoreFile = document.getElementById('input-restore-file');
-  document.getElementById('btn-restore-backup').addEventListener('click', () => {
-    inputRestoreFile.value = '';
-    inputRestoreFile.click();
-  });
-
-  inputRestoreFile.addEventListener('change', async () => {
-    const file = inputRestoreFile.files[0];
-    if (!file) return;
-
-    const confirmed = confirm(
-      `⚠️ 恢复备份将【清空当前所有数据】并还原为备份文件内容！\n\n` +
-      `备份文件：${file.name}\n` +
-      `文件大小：${(file.size / 1024).toFixed(1)} KB\n\n` +
-      `此操作不可撤销，请确认你已知晓风险。\n是否继续？`
-    );
-    if (!confirmed) return;
-
-    const formData = new FormData();
-    formData.append('backupFile', file);
-
-    try {
-      const res = await fetch('/api/backup/restore', { method: 'POST', body: formData });
-      const result = await res.json();
-      if (result.success) {
-        const s = result.stats;
-        alert(
-          `✅ 数据恢复成功！\n\n` +
-          `备份时间：${result.exported_at ? result.exported_at.replace('T', ' ').slice(0, 19) : '未知'}\n` +
-          `─────────────────\n` +
-          `元器件：${s.components || 0} 条\n` +
-          `出入库日志：${s.stock_logs || 0} 条\n` +
-          `导入批次：${s.import_batches || 0} 条\n` +
-          `项目：${s.projects || 0} 个\n` +
-          `项目物料明细：${s.project_items || 0} 条\n` +
-          `─────────────────\n` +
-          `即将刷新页面以加载最新数据...`
-        );
-        location.reload();
-      } else {
-        alert('❌ 恢复失败：' + result.error);
-      }
-    } catch (e) {
-      alert('❌ 网络请求失败：' + e.message);
-    }
-  });
 }
 
 async function loadNetworkInfo() {
