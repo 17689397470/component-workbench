@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node test/test_parser.js"
+    "test": "node test/test_all.js"
   },
   "keywords": [
     "bom",

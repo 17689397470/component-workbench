@@ -15,7 +15,7 @@ const QRCode = require('qrcode');
 
 const fs = require('fs');
 const db = require('./lib/db');
-const { parseComponentText, parseFreeformBatchText } = require('./lib/parser');
+const { parseComponentText, parseFreeformBatchText, parseOmniboxText } = require('./lib/parser');
 const { queryOfficialComponent } = require('./lib/lcscService');
 const { parseBOMFile, compareBOMWithStock, generatePickingList, extractPurchaseShortageList } = require('./lib/bomMatcher');
 const { parseTaobaoOrderFile } = require('./lib/taobaoParser');
@@ -859,6 +859,270 @@ app.get('/api/projects/:id/label', async (req, res) => {
         mobile_url: mobileUrl,
         pack_date: new Date().toISOString().slice(0, 10)
       }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== 数据安全与备份中心路由 ====================
+
+// 38. 全量数据导出下载 (JSON 备份，包含所有 5 张表与元数据)
+app.get('/api/backup/export', async (req, res) => {
+  try {
+    const backup = await db.exportFullBackup();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `component-workbench-backup-${dateStr}.json`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.send(JSON.stringify(backup, null, 2));
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 39. 原生 SQLite 数据库单文件直接下载 (.db)
+app.get('/api/backup/download-db', (req, res) => {
+  try {
+    const dbPath = path.join(__dirname, 'data', 'components.db');
+    if (!fs.existsSync(dbPath)) {
+      return res.status(404).json({ success: false, error: '数据库文件尚未生成' });
+    }
+    const dateStr = new Date().toISOString().slice(0, 10);
+    res.download(dbPath, `components-workbench-${dateStr}.db`);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 40. 全量备份数据恢复导入 (覆写恢复，执行前强制自动创建本地快照)
+app.post('/api/backup/restore', upload.single('backupFile'), async (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, error: '未接收到有效的备份文件' });
+    }
+
+    let backup;
+    try {
+      backup = JSON.parse(req.file.buffer.toString('utf8'));
+    } catch (e) {
+      return res.status(400).json({ success: false, error: '备份文件不是合法的 JSON 格式' });
+    }
+
+    if (!backup.tables || typeof backup.tables !== 'object') {
+      return res.status(400).json({ success: false, error: '备份文件结构不符，缺少 tables 数据块' });
+    }
+
+    const result = await db.importFullBackup(backup);
+    res.json({
+      success: true,
+      message: '全量数据已成功恢复！',
+      exported_at: result.exported_at || '未知',
+      autoSnapshot: result.autoSnapshot,
+      stats: result.stats
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 41. 获取本地历史快照列表
+app.get('/api/backup/snapshots', (req, res) => {
+  try {
+    const snapshots = db.listDatabaseSnapshots();
+    res.json({ success: true, data: snapshots });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 42. 手动创建本地快照
+app.post('/api/backup/snapshots/create', async (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    const snapshot = await db.createDatabaseSnapshot(reason || 'manual');
+    res.json({ success: true, message: '快照创建成功', data: snapshot });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 43. 从指定本地快照回滚当前数据库
+app.post('/api/backup/snapshots/rollback', async (req, res) => {
+  try {
+    const { filename } = req.body || {};
+    if (!filename) {
+      return res.status(400).json({ success: false, error: '缺少需要回滚的快照文件名' });
+    }
+    const result = await db.rollbackFromSnapshot(filename);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ==================== 智能扫码与 OCR 标签解析路由 ====================
+
+// 44. 扫码与 OCR 标签文本智能解析与入库预检
+app.post('/api/scan/resolve', async (req, res) => {
+  try {
+    const { rawText, scanType } = req.body || {}; // scanType: 'qrcode' | 'ocr' | 'text'
+    if (!rawText || typeof rawText !== 'string' || !rawText.trim()) {
+      return res.status(400).json({ success: false, error: '缺少有效的识别文本内容' });
+    }
+
+    let cleanInput = rawText.trim();
+    let lcscPart = null;
+    let extractedQty = null;
+
+    // 0. 优先检测是否为 JSON 格式立创码
+    if (cleanInput.startsWith('{') && cleanInput.endsWith('}')) {
+      try {
+        const obj = JSON.parse(cleanInput);
+        const pc = obj.pc || obj.productCode || obj.c_part || obj.part_no || null;
+        if (pc) lcscPart = String(pc).toUpperCase();
+        const qVal = parseInt(obj.qty || obj.quantity || obj.number || obj.count, 10);
+        if (!isNaN(qVal) && qVal > 0) extractedQty = qVal;
+      } catch (e) {}
+    }
+
+    // 1. 若非 JSON 或未提取到，使用正则提取立创C编号 (如 C2057)
+    if (!lcscPart) {
+      const cMatch = cleanInput.match(/\b(C\d{3,8})\b/i);
+      lcscPart = cMatch ? cMatch[1].toUpperCase() : null;
+    }
+
+    // 2. 提取袋装数量 (如 100只, 50PCS, QTY: 100, "qty":50, x100)
+    if (!extractedQty) {
+      const qtyPatterns = [
+        /["']?(?:qty|quantity|数量|count)["']?\s*[:：=\s]*["']?(\d+)["']?/i,
+        /(?:PCS|只|片|个|X|x|数量:|\*)\s*[:：=\s]*(\d+)\b/i,
+        /\b(\d+)\s*(?:只|片|个|PCS|pcs|粒|条)\b/i,
+        /(?:^|\s)(\d{1,5})\s*(?:只|片|个|PCS)\b/i
+      ];
+      for (const pat of qtyPatterns) {
+        const qm = cleanInput.match(pat);
+        if (qm) {
+          const val = parseInt(qm[1], 10);
+          if (!isNaN(val) && val > 0 && val < 500000) {
+            extractedQty = val;
+            break;
+          }
+        }
+      }
+    }
+
+    let resolvedData = null;
+
+    // 3. 若检测到立创 C编号，优先查询官方数据 (官方字典或公开接口)
+    if (lcscPart) {
+      try {
+        const official = await queryOfficialComponent(lcscPart);
+        if (official) {
+          resolvedData = {
+            name: official.name,
+            category: official.category || '芯片',
+            package: official.package || '',
+            value: official.value || official.name,
+            standard_value: official.standard_value,
+            unit: official.unit || '',
+            voltage: official.voltage,
+            tolerance: official.tolerance || '',
+            manufacturer: official.manufacturer || '',
+            image_url: official.image_url || '',
+            datasheet_url: official.datasheet_url || '',
+            lcsc_part: lcscPart,
+            quantity: extractedQty || 100,
+            notes: official.notes || '立创料袋扫码入库'
+          };
+        }
+      } catch (e) {
+        console.warn('[ScanResolve] 官方接口查询异常:', e.message);
+      }
+    }
+
+    // 4. 若无立创编号或未查出，走本地智能分词与 Omnibox 引擎
+    if (!resolvedData) {
+      const omni = parseOmniboxText(cleanInput);
+      const parsed = omni.parsedComponent || parseComponentText(omni.coreText || cleanInput);
+      resolvedData = {
+        name: parsed.name || omni.coreText || cleanInput,
+        category: parsed.category || '其他',
+        package: omni.package || parsed.package || '',
+        value: parsed.value || '',
+        standard_value: parsed.standard_value,
+        unit: parsed.unit || '',
+        voltage: parsed.voltage,
+        tolerance: parsed.tolerance || '',
+        manufacturer: '',
+        image_url: '',
+        datasheet_url: '',
+        lcsc_part: lcscPart || '',
+        quantity: extractedQty || omni.quantity || 100,
+        notes: scanType === 'ocr' ? '拍照OCR识别入库' : '扫码速记入库'
+      };
+    }
+
+    // 5. 库存对账与智能归盒
+    const allStock = await db.exportAll();
+    let existingItem = null;
+
+    // 5.1 优先立创编号完全匹配
+    if (resolvedData.lcsc_part) {
+      existingItem = allStock.find(s => s.lcsc_part && s.lcsc_part.toUpperCase() === resolvedData.lcsc_part.toUpperCase());
+    }
+
+    // 5.2 阻容/同封装精确匹配
+    if (!existingItem && resolvedData.value && resolvedData.package) {
+      existingItem = allStock.find(s =>
+        s.category === resolvedData.category &&
+        s.package && s.package.toUpperCase() === resolvedData.package.toUpperCase() &&
+        (s.value === resolvedData.value || (s.standard_value !== null && s.standard_value === resolvedData.standard_value))
+      );
+    }
+
+    // 5.3 芯片同型号匹配
+    if (!existingItem && resolvedData.category === '芯片' && resolvedData.value) {
+      existingItem = allStock.find(s =>
+        s.category === '芯片' &&
+        s.value && s.value.toUpperCase() === resolvedData.value.toUpperCase()
+      );
+    }
+
+    // 确定推荐目标收纳盒
+    let targetLocation = '';
+    if (existingItem && existingItem.location) {
+      targetLocation = existingItem.location;
+    } else {
+      const catBoxMap = {
+        '电阻': '默认电阻盒',
+        '电容': '默认电容盒',
+        '电感': '默认电感盒',
+        '芯片': '芯片收纳盒',
+        '二极管': '二极管盒',
+        '三极管/MOS': 'MOS/三极管盒',
+        '接插件': '接插件盒',
+        '模块': '模块盒'
+      };
+      const sameCatItem = allStock.find(s => s.category === resolvedData.category && s.location);
+      targetLocation = sameCatItem ? sameCatItem.location : (catBoxMap[resolvedData.category] || '通用收纳盒');
+    }
+
+    res.json({
+      success: true,
+      data: resolvedData,
+      isExisting: !!existingItem,
+      existingItem: existingItem ? {
+        id: existingItem.id,
+        name: existingItem.name,
+        quantity: existingItem.quantity,
+        location: existingItem.location,
+        category: existingItem.category,
+        package: existingItem.package
+      } : null,
+      targetLocation,
+      scanType: scanType || 'qrcode',
+      rawText: cleanInput
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

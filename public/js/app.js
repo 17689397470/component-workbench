@@ -14,6 +14,7 @@ let currentSortOrder = 'desc';
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
+  applyInventoryViewMode();
   renderProTableHeader('');
   initSearchAndFilter();
   initTableSorting();
@@ -26,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFrequentLocations();
   loadNetworkInfo();
   if (window.initBOMView) window.initBOMView();
+
+  window.addEventListener('resize', () => {
+    applyInventoryViewMode();
+  });
 });
 
 // ==================== 1. 主题与全局导航 ====================
@@ -789,6 +794,159 @@ function renderProTable(list) {
   });
 
   if (tbody) tbody.innerHTML = html;
+
+  // 同步渲染图文展示型大卡片网格
+  renderInventoryShowcaseGrid(sortedList);
+}
+
+// ==================== 首页多视图 (表格 vs 图文大卡) 控制器 ====================
+
+let inventoryViewMode = localStorage.getItem('bom_inventory_view_mode') || (window.innerWidth < 768 ? 'grid' : 'table');
+let inventoryGridDensity = localStorage.getItem('bom_inventory_grid_density') || 'single';
+
+function setInventoryViewMode(mode) {
+  inventoryViewMode = mode;
+  localStorage.setItem('bom_inventory_view_mode', mode);
+  applyInventoryViewMode();
+}
+
+function toggleGridDensity() {
+  inventoryGridDensity = (inventoryGridDensity === 'single' ? 'double' : 'single');
+  localStorage.setItem('bom_inventory_grid_density', inventoryGridDensity);
+  applyGridDensity();
+}
+
+function applyGridDensity() {
+  const grid = document.getElementById('inventory-grid-container');
+  const icon = document.getElementById('density-icon');
+  const label = document.getElementById('density-label');
+
+  if (grid) {
+    grid.classList.toggle('density-double', inventoryGridDensity === 'double');
+  }
+  if (icon && label) {
+    if (inventoryGridDensity === 'double') {
+      icon.innerText = '▦';
+      label.innerText = '双列';
+    } else {
+      icon.innerText = '🔲';
+      label.innerText = '单列';
+    }
+  }
+}
+
+function applyInventoryViewMode() {
+  const tableEl = document.getElementById('pro-table-element');
+  const gridEl = document.getElementById('inventory-grid-container');
+  const btnTable = document.getElementById('btn-view-table');
+  const btnGrid = document.getElementById('btn-view-grid');
+  const densityBtn = document.getElementById('btn-grid-density-toggle');
+
+  if (btnTable) btnTable.classList.toggle('active', inventoryViewMode === 'table');
+  if (btnGrid) btnGrid.classList.toggle('active', inventoryViewMode === 'grid');
+
+  if (inventoryViewMode === 'grid') {
+    if (tableEl) tableEl.style.display = 'none';
+    if (gridEl) gridEl.style.display = 'grid';
+    if (densityBtn) densityBtn.style.display = (window.innerWidth <= 768 ? 'inline-flex' : 'none');
+  } else {
+    if (tableEl) tableEl.style.display = '';
+    if (gridEl) gridEl.style.display = 'none';
+    if (densityBtn) densityBtn.style.display = 'none';
+  }
+  applyGridDensity();
+}
+
+/**
+ * 渲染沉浸图文展示型大卡片网格列表 (Showcase Card)
+ */
+function renderInventoryShowcaseGrid(list) {
+  const grid = document.getElementById('inventory-grid-container');
+  if (!grid) return;
+  if (!list || list.length === 0) {
+    grid.innerHTML = '';
+    return;
+  }
+
+  grid.innerHTML = list.map(item => {
+    const icon = getCategoryIcon(item.category);
+    const locText = item.location ? item.location : '随手放';
+    const spec = formatSpec(item);
+    const brand = item.manufacturer || '';
+
+    // 实物缩略图 (有图显示官方白底图，无图显示带引脚线框的质感矢量占位图)
+    let thumbHtml = '';
+    if (item.image_url) {
+      thumbHtml = `<img src="${escapeAttr(item.image_url)}" class="showcase-thumb-img" alt="${escapeAttr(item.name)}" loading="lazy">`;
+    } else {
+      thumbHtml = `
+        <div class="showcase-thumb-placeholder">
+          <span class="showcase-placeholder-icon">${icon}</span>
+          <span class="showcase-placeholder-label">${escapeHtml(item.category || '元件')}</span>
+        </div>
+      `;
+    }
+
+    // 立创 C 编号规格书外链角标
+    let lcscBadge = '';
+    if (item.lcsc_part) {
+      const cNum = item.lcsc_part.toUpperCase().trim();
+      const numOnly = cNum.replace('C', '');
+      const link = item.datasheet_url || `https://item.szlcsc.com/${numOnly}.html`;
+      lcscBadge = `
+        <a href="${link}" target="_blank" class="showcase-badge-lcsc" onclick="event.stopPropagation();" title="在新标签页查看立创原厂规格书">
+          <span>${escapeHtml(cNum)}</span> <span style="font-size: 9px;">↗</span>
+        </a>
+      `;
+    }
+
+    // 状态呼吸灯
+    const isLow = !!item.is_low_stock;
+    const statusHtml = isLow
+      ? `<span class="showcase-status-indicator is-low">⚠️ 待补料 (${item.quantity}件)</span>`
+      : `<span class="showcase-status-indicator is-ok">● 库存充足</span>`;
+
+    return `
+      <div class="showcase-card" onclick="openDetailDrawer(${item.id})">
+        <div class="showcase-thumb-box">
+          ${thumbHtml}
+          <span class="showcase-badge-cat">${icon} ${escapeHtml(item.category || '其他')}</span>
+          ${lcscBadge}
+        </div>
+
+        <div class="showcase-body">
+          <div class="showcase-title-row">
+            <div class="showcase-main-title" title="${escapeAttr(item.name)}">
+              ${escapeHtml(item.value || item.name)}
+            </div>
+          </div>
+
+          ${brand ? `<div class="showcase-mfr-text">${escapeHtml(brand)}</div>` : `<div class="showcase-mfr-text" style="color: transparent;">-</div>`}
+
+          <div class="showcase-specs-row">
+            ${item.package ? `<span class="showcase-spec-chip is-pkg">${escapeHtml(item.package)}</span>` : ''}
+            ${item.tolerance ? `<span class="showcase-spec-chip">${escapeHtml(item.tolerance)}</span>` : ''}
+            ${item.voltage ? `<span class="showcase-spec-chip">${item.voltage}V</span>` : ''}
+            ${spec && spec !== item.value ? `<span class="showcase-spec-chip">${escapeHtml(spec)}</span>` : ''}
+          </div>
+
+          <div class="showcase-location-row" onclick="filterByLocation('${escapeAttr(item.location || '')}'); event.stopPropagation();">
+            <span>📦</span>
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(locText)}</span>
+          </div>
+        </div>
+
+        <div class="showcase-footer">
+          <div class="showcase-qty-main">
+            <span style="color: var(--text-muted); font-size: 11px;">现存:</span>
+            <span class="showcase-qty-num" style="${isLow ? 'color: #b45309;' : ''}">${item.quantity}</span>
+            <span style="font-size: 11px; color: var(--text-dim);">件</span>
+          </div>
+          ${statusHtml}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function getCategoryIcon(cat) {
@@ -2453,7 +2611,128 @@ async function loadFrequentLocations() {
   }
 }
 
+// ==================== 全局数据安全与备份中心逻辑 ====================
+
+window.switchBackupTab = function(tabName) {
+  const tabs = ['export', 'restore', 'snapshots'];
+  tabs.forEach(t => {
+    const pane = document.getElementById(`backup-pane-${t}`);
+    const btn = document.getElementById(`tab-btn-backup-${t}`);
+    if (pane) pane.style.display = (t === tabName) ? 'block' : 'none';
+    if (btn) btn.classList.toggle('active', t === tabName);
+  });
+  if (tabName === 'snapshots') {
+    window.loadBackupSnapshots();
+  }
+};
+
+let currentRestoreParsedData = null;
+let currentRestoreFile = null;
+
+window.cancelRestorePreview = function() {
+  currentRestoreParsedData = null;
+  currentRestoreFile = null;
+  const input = document.getElementById('input-backup-restore-file');
+  if (input) input.value = '';
+  const card = document.getElementById('restore-preview-card');
+  if (card) card.style.display = 'none';
+};
+
+function formatSnapshotTime(isoOrDate) {
+  if (!isoOrDate) return '未知时间';
+  const d = new Date(isoOrDate);
+  if (isNaN(d.getTime())) return String(isoOrDate);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function formatSnapshotReason(reason) {
+  const map = {
+    'manual': '手动创建',
+    'pre_restore': '恢复前自动保底',
+    'pre_rollback': '回滚前自动留存',
+    'test_unit': '测试用例生成',
+    'test_all_suite': '集成测试生成'
+  };
+  return map[reason] || reason || '常规快照';
+}
+
+window.loadBackupSnapshots = async function() {
+  const tbody = document.getElementById('snapshot-table-body');
+  const countBadge = document.getElementById('backup-snapshot-count');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 20px;">正在加载快照列表...</td></tr>';
+  try {
+    const res = await fetch('/api/backup/snapshots');
+    const json = await res.json();
+    if (!json.success || !json.data) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #dc2626; padding: 20px;">加载快照失败</td></tr>';
+      return;
+    }
+    const list = json.data;
+    if (countBadge) countBadge.innerText = list.length;
+
+    if (list.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 24px;">暂无本地快照，点击「立即创建快照」即可留存当前时点备份</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = list.map(item => `
+      <tr>
+        <td style="padding: 10px 12px; font-family: monospace; font-size: 11.5px; color: var(--text-main); font-weight: 500;">
+          ${escapeHtml(item.filename)}
+        </td>
+        <td style="padding: 10px 12px;">
+          <span class="sub-tag-pill" style="font-size: 11px; ${item.reason.includes('restore') ? 'color: #dc2626; background: #fee2e2; border-color: #fca5a5;' : ''}">
+            ${formatSnapshotReason(item.reason)}
+          </span>
+        </td>
+        <td style="padding: 10px 12px; color: var(--text-dim);">${item.sizeFormatted}</td>
+        <td style="padding: 10px 12px; color: var(--text-dim);">${formatSnapshotTime(item.mtime || item.createdAt)}</td>
+        <td style="padding: 10px 12px; text-align: right;">
+          <button type="button" class="btn-apple-secondary" style="font-size: 11px; padding: 3px 8px; color: #7c3aed; border-color: #ddd6fe;" onclick="window.handleRollbackSnapshot('${escapeHtml(item.filename)}')">
+            ↩ 回滚至此
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #dc2626; padding: 20px;">请求异常: ${escapeHtml(e.message)}</td></tr>`;
+  }
+};
+
+window.handleRollbackSnapshot = async function(filename) {
+  const confirmed = confirm(
+    `⚠️ 警告：确认回滚至该快照？\n\n` +
+    `快照文件名：${filename}\n\n` +
+    `操作说明：\n` +
+    `1. 当前数据将被快照中的内容完整替换；\n` +
+    `2. 执行回滚前，系统将自动再次保存当前最新状态作为保底，无需担心误触。\n\n` +
+    `是否继续？`
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch('/api/backup/snapshots/rollback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename })
+    });
+    const result = await res.json();
+    if (result.success) {
+      alert(`✅ 已成功回滚至快照！\n\n${result.message}\n系统即将自动刷新以载入最新数据。`);
+      location.reload();
+    } else {
+      alert('❌ 回滚失败: ' + result.error);
+    }
+  } catch (e) {
+    alert('❌ 网络请求失败: ' + e.message);
+  }
+};
+
 function initPresetAndBackup() {
+  // 导入预设
   document.getElementById('btn-seed-presets').addEventListener('click', async () => {
     if (!confirm('确定导入常用基础阻容（E24常用系列）与常用芯片预设吗？')) return;
     try {
@@ -2469,9 +2748,180 @@ function initPresetAndBackup() {
     }
   });
 
+  // 导出 Excel 表格
   document.getElementById('btn-export-excel').addEventListener('click', () => {
     window.location.href = '/api/components/export?format=excel';
   });
+
+  // 打开备份与还原中心
+  const btnOpenBackup = document.getElementById('btn-open-backup-center');
+  if (btnOpenBackup) {
+    btnOpenBackup.addEventListener('click', () => {
+      openDrawer('modal-backup-center-backdrop');
+      window.switchBackupTab('export');
+      // 异步读取快照计数
+      fetch('/api/backup/snapshots')
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && json.data) {
+            const countBadge = document.getElementById('backup-snapshot-count');
+            if (countBadge) countBadge.innerText = json.data.length;
+          }
+        })
+        .catch(() => {});
+    });
+  }
+
+  // 导出 JSON 全量备份
+  const btnExportJson = document.getElementById('btn-action-export-json');
+  if (btnExportJson) {
+    btnExportJson.addEventListener('click', () => {
+      window.location.href = '/api/backup/export';
+    });
+  }
+
+  // 下载 SQLite 原生数据库文件 (.db)
+  const btnDownloadDb = document.getElementById('btn-action-download-db');
+  if (btnDownloadDb) {
+    btnDownloadDb.addEventListener('click', () => {
+      window.location.href = '/api/backup/download-db';
+    });
+  }
+
+  // 立即创建本地快照
+  const btnCreateSnapshot = document.getElementById('btn-action-create-snapshot');
+  if (btnCreateSnapshot) {
+    btnCreateSnapshot.addEventListener('click', async () => {
+      btnCreateSnapshot.disabled = true;
+      btnCreateSnapshot.innerText = '正在生成快照...';
+      try {
+        const res = await fetch('/api/backup/snapshots/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'manual' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ 本地快照创建成功！\n\n文件名: ${data.data.filename}\n大小: ${data.data.sizeFormatted}`);
+          // 更新计数
+          fetch('/api/backup/snapshots')
+            .then(r => r.json())
+            .then(j => {
+              if (j.success && j.data) {
+                const countBadge = document.getElementById('backup-snapshot-count');
+                if (countBadge) countBadge.innerText = j.data.length;
+              }
+            });
+        } else {
+          alert('❌ 快照创建失败: ' + data.error);
+        }
+      } catch (e) {
+        alert('❌ 请求异常: ' + e.message);
+      } finally {
+        btnCreateSnapshot.disabled = false;
+        btnCreateSnapshot.innerText = '⚡ 立即创建快照';
+      }
+    });
+  }
+
+  // 选择备份恢复文件
+  const btnChooseFile = document.getElementById('btn-choose-restore-file');
+  const inputRestoreFile = document.getElementById('input-backup-restore-file');
+  if (btnChooseFile && inputRestoreFile) {
+    btnChooseFile.addEventListener('click', () => {
+      inputRestoreFile.value = '';
+      inputRestoreFile.click();
+    });
+
+    inputRestoreFile.addEventListener('change', () => {
+      const file = inputRestoreFile.files[0];
+      if (!file) return;
+
+      currentRestoreFile = file;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (!parsed.tables || typeof parsed.tables !== 'object' || !Array.isArray(parsed.tables.components)) {
+            alert('❌ 备份文件格式不符，缺少有效的 tables.components 数据');
+            cancelRestorePreview();
+            return;
+          }
+
+          currentRestoreParsedData = parsed;
+          const previewCard = document.getElementById('restore-preview-card');
+          const timeText = document.getElementById('restore-preview-time');
+          const cComp = document.getElementById('restore-count-components');
+          const cProj = document.getElementById('restore-count-projects');
+          const cLogs = document.getElementById('restore-count-logs');
+          const cBatch = document.getElementById('restore-count-batches');
+
+          const exportedAt = parsed.meta ? parsed.meta.exported_at : (parsed.exported_at || null);
+          if (timeText) timeText.innerText = `备份时间: ${formatSnapshotTime(exportedAt)}`;
+          if (cComp) cComp.innerText = parsed.tables.components ? parsed.tables.components.length : 0;
+          if (cProj) cProj.innerText = parsed.tables.projects ? parsed.tables.projects.length : 0;
+          if (cLogs) cLogs.innerText = parsed.tables.stock_logs ? parsed.tables.stock_logs.length : 0;
+          if (cBatch) cBatch.innerText = parsed.tables.import_batches ? parsed.tables.import_batches.length : 0;
+
+          if (previewCard) previewCard.style.display = 'block';
+        } catch (e) {
+          alert('❌ 读取解析备份文件失败: ' + e.message);
+          cancelRestorePreview();
+        }
+      };
+      reader.readAsText(file, 'utf-8');
+    });
+  }
+
+  // 确认恢复执行
+  const btnConfirmRestore = document.getElementById('btn-confirm-restore');
+  if (btnConfirmRestore) {
+    btnConfirmRestore.addEventListener('click', async () => {
+      if (!currentRestoreFile || !currentRestoreParsedData) {
+        alert('请先选择有效的备份文件');
+        return;
+      }
+
+      const confirmed = confirm(
+        `⚠️ 最终确认：确定覆盖恢复数据？\n\n` +
+        `即将恢复：${currentRestoreParsedData.tables.components.length} 条物料数据\n` +
+        `系统安全机制：在覆盖前会自动生成一份快照保底。\n\n` +
+        `点击【确定】开始恢复。`
+      );
+      if (!confirmed) return;
+
+      btnConfirmRestore.disabled = true;
+      btnConfirmRestore.innerText = '正在执行安全恢复与自动快照...';
+
+      const formData = new FormData();
+      formData.append('backupFile', currentRestoreFile);
+
+      try {
+        const res = await fetch('/api/backup/restore', {
+          method: 'POST',
+          body: formData
+        });
+        const result = await res.json();
+        if (result.success) {
+          alert(
+            `✅ 数据已安全恢复！\n\n` +
+            `已恢复物料: ${result.stats.components || 0} 件\n` +
+            `已恢复项目: ${result.stats.projects || 0} 个\n` +
+            `🛡️ 已自动创建恢复前保底快照: ${result.autoSnapshot || '已生成'}\n\n` +
+            `页面即将自动刷新。`
+          );
+          location.reload();
+        } else {
+          alert('❌ 恢复失败: ' + result.error);
+        }
+      } catch (e) {
+        alert('❌ 请求异常: ' + e.message);
+      } finally {
+        btnConfirmRestore.disabled = false;
+        btnConfirmRestore.innerText = '⚠️ 确认覆盖恢复当前数据';
+      }
+    });
+  }
 }
 
 async function loadNetworkInfo() {
@@ -3635,6 +4085,490 @@ window.updateQueueItemLoc = updateQueueItemLoc;
 window.toggleQueueItemForceNew = toggleQueueItemForceNew;
 window.removeQueueItem = removeQueueItem;
 window.submitScratchpadQueue = submitScratchpadQueue;
+
+// ==================== 手机沉浸式扫码与 OCR 录入控制器 ====================
+
+let scanSessionCount = 0;
+let activeSheetData = null;
+let sheetTimerInterval = null;
+let sheetTimeRemaining = 3.0;
+let isTorchActive = false;
+
+/**
+ * 打开全屏沉浸式扫码与拍标签取景器
+ */
+async function openImmersiveScanner() {
+  const modal = document.getElementById('immersive-scanner-modal');
+  const video = document.getElementById('immersive-scanner-video');
+  const counter = document.getElementById('scan-session-count');
+  const hint = document.getElementById('scanner-status-hint');
+
+  if (!modal || !video) return;
+
+  modal.style.display = 'flex';
+  if (counter) counter.innerText = scanSessionCount;
+  if (hint) hint.innerText = '对准立创标签二维码自动扫 · 无码点快门识字';
+
+  // 绑定键盘 Esc 键退出
+  document.addEventListener('keydown', handleScannerKeyboard);
+
+  try {
+    await window.startImmersiveCamera(video, handleScanDetected);
+  } catch (err) {
+    alert(`无法开启后置摄像头: ${err.message || '请确保在 HTTPS 或局域网环境并允许相机权限'}`);
+    closeImmersiveScanner();
+  }
+}
+
+/**
+ * 关闭沉浸式扫码器
+ */
+function closeImmersiveScanner() {
+  dismissSheetAndContinue();
+  window.stopImmersiveCamera();
+  const modal = document.getElementById('immersive-scanner-modal');
+  if (modal) modal.style.display = 'none';
+  document.removeEventListener('keydown', handleScannerKeyboard);
+  isTorchActive = false;
+}
+
+function handleScannerKeyboard(e) {
+  if (e.key === 'Escape') {
+    closeImmersiveScanner();
+  } else if ((e.key === 'Enter' || e.key === ' ') && activeSheetData) {
+    e.preventDefault();
+    confirmSheetSave();
+  }
+}
+
+/**
+ * 开关补光灯 (Torch)
+ */
+async function handleToggleTorch() {
+  isTorchActive = !isTorchActive;
+  const ok = await window.toggleTorch(isTorchActive);
+  const btn = document.getElementById('btn-toggle-torch');
+  if (btn) {
+    btn.style.color = isTorchActive ? '#facc15' : '#ffffff';
+  }
+  if (!ok && isTorchActive) {
+    showToast('当前设备未检测到闪光灯或不支持控制');
+    isTorchActive = false;
+  }
+}
+
+/**
+ * 二维码被镜头捕捉并解码回调
+ */
+async function handleScanDetected(codeText, scanType = 'qrcode') {
+  const hint = document.getElementById('scanner-status-hint');
+  if (hint) hint.innerText = '⚡ 发现物料标签，正在解析中...';
+
+  try {
+    const res = await fetch('/api/scan/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rawText: codeText, scanType })
+    });
+    const result = await res.json();
+    if (!result.success) {
+      if (hint) hint.innerText = '❌ 解析失败，请对准有效标签';
+      setTimeout(() => window.unlockScanner(), 1500);
+      return;
+    }
+
+    presentScanResultSheet(result.data, result.isExisting, result.existingItem, result.targetLocation, scanType, result.rawText);
+  } catch (e) {
+    if (hint) hint.innerText = '网络连接异常';
+    setTimeout(() => window.unlockScanner(), 1500);
+  }
+}
+
+/**
+ * 📸 拍标签文字 (OCR) 快门事件
+ */
+async function handleCaptureOcr() {
+  const video = document.getElementById('immersive-scanner-video');
+  const hint = document.getElementById('scanner-status-hint');
+  const shutterBtn = document.getElementById('btn-camera-shutter');
+
+  if (!video) return;
+
+  // 1. 抓取增强二值化画面
+  const frameBase64 = window.captureEnhancedFrame(video);
+  if (!frameBase64) {
+    alert('未能抓取到画面帧，请确保摄像头已就绪');
+    return;
+  }
+
+  // 2. 动画反馈
+  if (shutterBtn) shutterBtn.style.transform = 'scale(0.85)';
+  setTimeout(() => { if (shutterBtn) shutterBtn.style.transform = ''; }, 150);
+  window.playBeep(false); // 轻微快门哔声
+
+  if (hint) hint.innerText = '正在识字中 (OCR)...';
+
+  try {
+    // 3. 客户端轻量 OCR
+    const recognizedText = await window.recognizeLabelText(frameBase64, (progText) => {
+      if (hint) hint.innerText = progText;
+    });
+
+    if (!recognizedText || recognizedText.length < 2) {
+      if (hint) hint.innerText = '⚠️ 未能清晰辨识出标签文字，请靠近并对焦';
+      return;
+    }
+
+    if (hint) hint.innerText = `提取到: "${recognizedText.slice(0, 18)}..." 正在解析...`;
+
+    // 4. 送入后端切词拆解
+    const res = await fetch('/api/scan/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rawText: recognizedText, scanType: 'ocr' })
+    });
+    const result = await res.json();
+    if (!result.success) {
+      alert('识别文本解析失败: ' + result.error);
+      if (hint) hint.innerText = '对准立创标签二维码自动扫 · 无码点快门识字';
+      return;
+    }
+
+    presentScanResultSheet(result.data, result.isExisting, result.existingItem, result.targetLocation, 'ocr', recognizedText);
+  } catch (err) {
+    alert(`识字遇到异常: ${err.message}`);
+    if (hint) hint.innerText = '对准立创标签二维码自动扫 · 无码点快门识字';
+  }
+}
+
+/**
+ * 弹出 3 秒智能确认毛玻璃浮窗
+ */
+function presentScanResultSheet(data, isExisting, existingItem, targetLocation, scanType, rawText) {
+  const sheet = document.getElementById('scanner-confirm-sheet');
+  const tag = document.getElementById('sheet-status-tag');
+  const title = document.getElementById('sheet-title-text');
+  const catIcon = document.getElementById('sheet-cat-icon');
+  const pkgChip = document.getElementById('sheet-pkg-chip');
+  const lcscChip = document.getElementById('sheet-lcsc-chip');
+  const mfrChip = document.getElementById('sheet-mfr-chip');
+  const thumbImg = document.getElementById('sheet-thumb-img');
+  const rawPrev = document.getElementById('sheet-raw-preview');
+  const rawSpan = document.getElementById('sheet-raw-text');
+  const locText = document.getElementById('sheet-location-text');
+  const qtyText = document.getElementById('sheet-qty-text');
+  const auditHint = document.getElementById('sheet-audit-hint');
+  const catPicker = document.getElementById('sheet-category-picker');
+  const hint = document.getElementById('scanner-status-hint');
+
+  if (!sheet) return;
+
+  // 记录活动数据
+  activeSheetData = {
+    ...data,
+    isExisting,
+    existingItem,
+    targetLocation: targetLocation || '默认收纳盒',
+    scanType,
+    rawText
+  };
+
+  // 状态标签
+  if (tag) {
+    tag.className = `sheet-status-tag ${isExisting ? 'is-existing' : 'is-new'}`;
+    tag.innerText = isExisting ? '📦 已有库存 (原盒累加)' : '✨ 全新物料入库';
+  }
+
+  // 品名与图标
+  const catIcons = { '电阻': '⚡', '电容': '🔋', '电感': '🌀', '芯片': '🔲', '二极管': '🔺', '三极管/MOS': '📐', '接插件': '🔌', '模块': '🧩' };
+  if (catIcon) catIcon.innerText = catIcons[data.category] || '📦';
+  if (title) title.innerText = data.name || data.value || '未命名物料';
+
+  // 封装
+  if (pkgChip) {
+    pkgChip.style.display = data.package ? 'inline-block' : 'none';
+    pkgChip.innerText = data.package || '';
+  }
+
+  // 立创编号
+  if (lcscChip) {
+    lcscChip.style.display = data.lcsc_part ? 'inline-block' : 'none';
+    lcscChip.innerText = data.lcsc_part || '';
+  }
+
+  // 厂商
+  if (mfrChip) {
+    mfrChip.style.display = data.manufacturer ? 'inline-block' : 'none';
+    mfrChip.innerText = data.manufacturer || '';
+  }
+
+  // 缩略图
+  if (thumbImg) {
+    if (data.image_url) {
+      thumbImg.src = data.image_url;
+      thumbImg.style.display = 'block';
+    } else {
+      thumbImg.style.display = 'none';
+    }
+  }
+
+  // 原始标签文字对照行 (如果是 OCR 拍到的)
+  if (rawPrev && rawSpan) {
+    if (scanType === 'ocr' && rawText) {
+      rawSpan.innerText = rawText;
+      rawPrev.style.display = 'block';
+    } else {
+      rawPrev.style.display = 'none';
+    }
+  }
+
+  // 位置与数量
+  if (locText) locText.innerText = activeSheetData.targetLocation;
+  if (qtyText) qtyText.innerText = activeSheetData.quantity || 100;
+
+  // 查重对账信息
+  if (auditHint) {
+    if (isExisting && existingItem) {
+      const prevQ = existingItem.quantity || 0;
+      const addQ = activeSheetData.quantity || 100;
+      auditHint.innerText = `已有库存 ${prevQ} 件 ＋ 本次 ${addQ} 件 ➔ 入库后将达 ${prevQ + addQ} 件`;
+      auditHint.style.display = 'block';
+    } else {
+      auditHint.style.display = 'none';
+    }
+  }
+
+  // 检查是否为未知冷门分类
+  const isUnknownCat = !data.category || data.category === '其他';
+  if (catPicker) {
+    catPicker.style.display = isUnknownCat ? 'block' : 'none';
+  }
+
+  // 展现浮窗
+  sheet.classList.add('is-visible');
+
+  // 若为未知分类，暂停倒计时等待手动点选分类；否则启动 3 秒倒计时
+  if (isUnknownCat) {
+    pauseSheetTimer();
+    const countText = document.getElementById('sheet-timer-countdown-text');
+    if (countText) {
+      countText.innerText = '⚠️ 请点选分类以自动入库';
+      countText.style.color = '#b45309';
+    }
+  } else {
+    startSheetCountdown(3.0);
+  }
+
+  if (hint) hint.innerText = '识别成功！3秒后自动存入，或轻触卡片微调';
+}
+
+/**
+ * 启动 3 秒横向倒计时
+ */
+function startSheetCountdown(seconds = 3.0) {
+  clearSheetTimer();
+  sheetTimeRemaining = seconds;
+  const total = seconds;
+  const bar = document.getElementById('sheet-timer-bar');
+  const countText = document.getElementById('sheet-timer-countdown-text');
+
+  if (bar) bar.style.width = '100%';
+  if (countText) {
+    countText.innerText = `${sheetTimeRemaining.toFixed(1)}s 后自动存入`;
+    countText.style.color = '#16a34a';
+  }
+
+  const intervalMs = 100;
+  sheetTimerInterval = setInterval(() => {
+    sheetTimeRemaining -= (intervalMs / 1000);
+    const pct = Math.max(0, (sheetTimeRemaining / total) * 100);
+
+    if (bar) bar.style.width = `${pct}%`;
+    if (countText) countText.innerText = `${Math.max(0, sheetTimeRemaining).toFixed(1)}s 后自动存入`;
+
+    if (sheetTimeRemaining <= 0) {
+      clearSheetTimer();
+      confirmSheetSave();
+    }
+  }, intervalMs);
+}
+
+/**
+ * 暂停倒计时 (用户触摸交互、修改数量/位置时)
+ */
+function pauseSheetTimer() {
+  clearSheetTimer();
+  const bar = document.getElementById('sheet-timer-bar');
+  const countText = document.getElementById('sheet-timer-countdown-text');
+  if (bar) bar.style.width = '0%';
+  if (countText) {
+    countText.innerText = '倒计时已暂停，等待确认';
+    countText.style.color = '#0284c7';
+  }
+}
+
+function clearSheetTimer() {
+  if (sheetTimerInterval) {
+    clearInterval(sheetTimerInterval);
+    sheetTimerInterval = null;
+  }
+}
+
+/**
+ * 步进调节浮窗数量
+ */
+function stepSheetQty(delta) {
+  pauseSheetTimer();
+  if (!activeSheetData) return;
+  let q = (activeSheetData.quantity || 100) + delta;
+  if (q < 1) q = 1;
+  activeSheetData.quantity = q;
+  const qtyText = document.getElementById('sheet-qty-text');
+  if (qtyText) qtyText.innerText = q;
+
+  // 更新对账
+  const auditHint = document.getElementById('sheet-audit-hint');
+  if (auditHint && activeSheetData.isExisting && activeSheetData.existingItem) {
+    const prevQ = activeSheetData.existingItem.quantity || 0;
+    auditHint.innerText = `已有库存 ${prevQ} 件 ＋ 本次 ${q} 件 ➔ 入库后将达 ${prevQ + q} 件`;
+  }
+}
+
+/**
+ * 点击修改浮窗收纳盒
+ */
+function promptChangeSheetLocation() {
+  pauseSheetTimer();
+  if (!activeSheetData) return;
+  const current = activeSheetData.targetLocation || '';
+  const newLoc = prompt('请输入或修改目标收纳盒位置:', current);
+  if (newLoc && newLoc.trim()) {
+    activeSheetData.targetLocation = newLoc.trim();
+    const locText = document.getElementById('sheet-location-text');
+    if (locText) locText.innerText = activeSheetData.targetLocation;
+  }
+}
+
+/**
+ * 单手点选分类胶囊
+ */
+function selectSheetCategory(cat) {
+  if (!activeSheetData) return;
+  activeSheetData.category = cat;
+  const catIcon = document.getElementById('sheet-cat-icon');
+  const catIcons = { '电阻': '⚡', '电容': '🔋', '电感': '🌀', '芯片': '🔲', '二极管': '🔺', '三极管/MOS': '📐', '接插件': '🔌', '模块': '🧩' };
+  if (catIcon) catIcon.innerText = catIcons[cat] || '📦';
+
+  // 隐藏分类选择器，立即存入
+  const catPicker = document.getElementById('sheet-category-picker');
+  if (catPicker) catPicker.style.display = 'none';
+  confirmSheetSave();
+}
+
+/**
+ * 确认存入入库
+ */
+async function confirmSheetSave() {
+  clearSheetTimer();
+  if (!activeSheetData) return;
+
+  const btnSubmit = document.getElementById('btn-sheet-submit');
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = '正在存入...';
+  }
+
+  try {
+    const item = activeSheetData;
+    if (item.isExisting && item.existingItem) {
+      // 1. 已有物料：累加数量
+      await fetch(`/api/components/${item.existingItem.id}/adjust`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          change: item.quantity,
+          action_type: item.scanType === 'ocr' ? 'OCR标签入库' : '扫码连录入库',
+          note: `扫码入库 +${item.quantity}`
+        })
+      });
+    } else {
+      // 2. 新物料：创建物料
+      await fetch('/api/components', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: item.name,
+          category: item.category || '其他',
+          package: item.package,
+          value: item.value,
+          standard_value: item.standard_value,
+          unit: item.unit,
+          voltage: item.voltage,
+          tolerance: item.tolerance,
+          quantity: item.quantity,
+          location: item.targetLocation,
+          lcsc_part: item.lcsc_part,
+          manufacturer: item.manufacturer,
+          image_url: item.image_url,
+          datasheet_url: item.datasheet_url,
+          notes: item.notes
+        })
+      });
+    }
+
+    // 成功提示
+    window.playBeep(true);
+    scanSessionCount++;
+    const counter = document.getElementById('scan-session-count');
+    if (counter) counter.innerText = scanSessionCount;
+
+    showToast(`✅ 已存入: ${item.name} x${item.quantity} [${item.targetLocation}]`);
+
+    // 异步更新主列表与仪表盘
+    if (window.loadInventory) window.loadInventory();
+    if (window.refreshWorkshopDashboard) window.refreshWorkshopDashboard();
+  } catch (err) {
+    alert('入库失败: ' + err.message);
+  } finally {
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.innerText = '✔ 立即存入 (无需等待)';
+    }
+    dismissSheetAndContinue();
+  }
+}
+
+/**
+ * 收起浮窗并恢复连扫状态
+ */
+function dismissSheetAndContinue() {
+  clearSheetTimer();
+  activeSheetData = null;
+  const sheet = document.getElementById('scanner-confirm-sheet');
+  if (sheet) sheet.classList.remove('is-visible');
+
+  const hint = document.getElementById('scanner-status-hint');
+  if (hint) hint.innerText = '对准立创标签二维码自动扫 · 无码点快门识字';
+
+  // 释放防重扫锁定，相机不中断，无缝等待下一袋！
+  window.unlockScanner();
+}
+
+window.openImmersiveScanner = openImmersiveScanner;
+window.closeImmersiveScanner = closeImmersiveScanner;
+window.handleToggleTorch = handleToggleTorch;
+window.handleCaptureOcr = handleCaptureOcr;
+window.stepSheetQty = stepSheetQty;
+window.promptChangeSheetLocation = promptChangeSheetLocation;
+window.selectSheetCategory = selectSheetCategory;
+window.confirmSheetSave = confirmSheetSave;
+window.dismissSheetAndContinue = dismissSheetAndContinue;
+
+// 首页多视图 (表格 vs 图文大卡) 全局接口
+window.setInventoryViewMode = setInventoryViewMode;
+window.toggleGridDensity = toggleGridDensity;
+window.applyInventoryViewMode = applyInventoryViewMode;
+
 
 
 

@@ -88,8 +88,31 @@ STM32F401CCU6,QFN-48,"U1",1,
   console.log(`   🔍 透视盒内清单: 查出 ${boxItems.length} 项明细`);
   if (boxItems.length !== firstBox.item_count) throw new Error('盒内物料数量与摘要不一致');
 
+  console.log('\n--- [Step 9] 验证数据全量备份与本地快照 ---');
+  const backup = await db.exportFullBackup();
+  console.log(`✔ 全量备份导出正常: 共导出 ${backup.counts.components} 件物料, ${backup.counts.projects} 个项目`);
+  const snapshotRes = await db.createDatabaseSnapshot('test_all_suite');
+  console.log(`✔ 本地自动快照创建成功: ${snapshotRes.filename} (${snapshotRes.sizeFormatted})`);
+  const snapshotsList = db.listDatabaseSnapshots();
+  console.log(`✔ 快照列表索引正常: 当前存有 ${snapshotsList.length} 份本地快照`);
+  try {
+    if (fs.existsSync(snapshotRes.filePath)) fs.unlinkSync(snapshotRes.filePath);
+  } catch (e) {}
+
+  console.log('\n--- [Step 10] 验证立创料袋与 OCR 标签智能解析 ---');
+  const scanRes = await fetch('http://localhost:3000/api/scan/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rawText: 'C2057 QTY:100', scanType: 'qrcode' })
+  });
+  const scanData = await scanRes.json();
+  if (!scanData.success || scanData.data.lcsc_part !== 'C2057') {
+    throw new Error('扫码解析测试未通过');
+  }
+  console.log(`✔ 扫码解析成功: 料号=${scanData.data.lcsc_part}, 品名=${scanData.data.name}, 数量=${scanData.data.quantity}`);
+
   console.log('\n========================================================');
-  console.log('🎉 全部单元与集成测试均 100% 顺利通过！系统各模块运作正常。');
+  console.log('🎉 全部单元与集成测试（含备份快照与智能扫码）均 100% 顺利通过！');
   console.log('========================================================\n');
 }
 
