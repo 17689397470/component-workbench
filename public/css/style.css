@@ -1,87 +1,95 @@
 /* ==========================================================================
-   Apple / Notion / Craft 极简纸白高质感设计系统
-   特点：通透纸白底色、克制的大面积留白、精致字体层级、柔和浅灰微边框、
-   侧滑毛玻璃抽屉面板、淡雅语义状态胶囊，彻底杜绝粗糙与死板表单。
+   Apple / Craft 极简纸白与深空石墨灰专业设计系统
+   特点：温润米白艺术纸基底、克制的高阶排版留白、统一 12px/14px 柔和圆角、
+   超轻柔环境光投影、Tabular 等宽数字、沉浸式毛玻璃抽屉面板、优雅语义状态胶囊。
    ========================================================================== */
 
 :root {
-  /* Apple / Notion 暖白纸质基底 */
-  --bg-canvas: #fafaf9;          /* Notion 标志性温润米白 */
+  /* Apple / Craft 温润米白纸质基底 */
+  --bg-canvas: #fbfbfa;          /* Craft / Notion 标志性温润米白艺术纸 */
   --bg-surface: #ffffff;         /* 纯净纸白卡片 */
-  --bg-surface-hover: #f5f5f4;   /* 悬停微灰 */
-  --bg-subtle: #f2f2f0;          /* 次级轻灰背景 */
+  --bg-surface-hover: #f7f6f4;   /* 极柔和悬停微灰 */
+  --bg-subtle: #f3f2ee;          /* 次级轻米灰背景 */
   --bg-input: #ffffff;
   
-  /* 极细微 0.5px - 1px 柔和分割线 (绝不生硬) */
-  --border-subtle: #eaeae8;
-  --border-focus: #2383e2;       /* Apple / Notion 标志性清澈蓝 */
-  --border-hover: #d7d7d5;
+  /* 极细微 0.5px - 1px 柔和微边框 (绝不生硬割裂) */
+  --border-subtle: #eae9e4;
+  --border-hover: #dad9d4;
+  --border-focus: #0071e3;       /* Apple 标志性清澈蓝 */
   
   /* 文字层级 (高阶排版) */
-  --text-main: #191919;          /* 深炭黑，非死黑，极具书卷与数码质感 */
-  --text-muted: #5f5e5b;         /* 沉稳中灰 */
-  --text-dim: #9b9a97;           /* 弱化辅助字 */
+  --text-main: #1d1d1f;          /* Apple 标准深炭黑，极具书卷与数码质感 */
+  --text-muted: #6e6e73;         /* 沉稳中灰 */
+  --text-dim: #86868b;           /* 弱化辅助字 */
   
   /* 温和淡雅语义状态色彩 (非刺眼荧光，柔和高雅) */
-  --badge-match-bg: #eaf5ea;
-  --badge-match-text: #1b7340;   /* 🟩 现货免买 (森林软绿) */
+  --badge-match-bg: #ecfdf5;
+  --badge-match-text: #15803d;   /* 🟩 现货免买 (森林软绿) */
   
-  --badge-sub-bg: #edf5fd;
-  --badge-sub-text: #1a6fc4;     /* 🟦 兼容替代 (天青蓝) */
+  --badge-sub-bg: #eff6ff;
+  --badge-sub-text: #1d4ed8;     /* 🟦 兼容替代 (天青蓝) */
   
-  --badge-short-bg: #fef6eb;
+  --badge-short-bg: #fffbeb;
   --badge-short-text: #b45309;   /* 🟨 需补库存 (温暖杏黄) */
   
-  --badge-lack-bg: #fdedec;
-  --badge-lack-text: #c53030;    /* 🟥 必须采购 (玫瑰绯红) */
+  --badge-lack-bg: #fef2f2;
+  --badge-lack-text: #b91c1c;    /* 🟥 必须采购 (玫瑰绯红) */
   
-  --accent: #2383e2;             /* 经典科技蓝 */
-  --accent-hover: #1b6fc4;
-  --accent-subtle: #edf5fd;
+  --accent: #0071e3;             /* Apple 经典科技蓝 */
+  --accent-hover: #0077ed;
+  --accent-subtle: #f0f7ff;
   
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08);
+  /* 柔和环境光多层投影 (纸张浮于桌面般自然) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
   
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  /* 统一圆角韵律 */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
 
-/* 优雅暗黑模式 (支持偏爱深色用户，如需切换亦保持高水准石墨质感) */
+/* Apple 深空石墨灰暗黑模式 */
 [data-theme="dark"] {
-  --bg-canvas: #121212;
-  --bg-surface: #1e1e1e;
-  --bg-surface-hover: #262626;
-  --bg-subtle: #242424;
-  --bg-input: #181818;
+  --bg-canvas: #121214;          /* 深邃深空底色 */
+  --bg-surface: #1c1c1f;         /* 石墨灰卡片 */
+  --bg-surface-hover: #26262a;   /* 悬停微亮灰 */
+  --bg-subtle: #242428;          /* 次级轻灰 */
+  --bg-input: #18181b;
   
-  --border-subtle: #2d2d2d;
-  --border-focus: #3b82f6;
-  --border-hover: #3d3d3d;
+  --border-subtle: #2c2c30;
+  --border-hover: #3d3d42;
+  --border-focus: #0a84ff;
   
-  --text-main: #f3f3f3;
-  --text-muted: #a3a3a3;
-  --text-dim: #737373;
+  --text-main: #f5f5f7;
+  --text-muted: #a1a1a6;
+  --text-dim: #6e6e73;
   
-  --badge-match-bg: rgba(34, 197, 94, 0.15);
+  --badge-match-bg: rgba(34, 197, 94, 0.14);
   --badge-match-text: #4ade80;
   
-  --badge-sub-bg: rgba(56, 189, 248, 0.15);
+  --badge-sub-bg: rgba(56, 189, 248, 0.14);
   --badge-sub-text: #38bdf8;
   
-  --badge-short-bg: rgba(245, 158, 11, 0.15);
+  --badge-short-bg: rgba(245, 158, 11, 0.14);
   --badge-short-text: #fbbf24;
   
-  --badge-lack-bg: rgba(239, 68, 68, 0.15);
+  --badge-lack-bg: rgba(239, 68, 68, 0.14);
   --badge-lack-text: #f87171;
   
-  --accent: #3b82f6;
-  --accent-hover: #60a5fa;
-  --accent-subtle: rgba(59, 130, 246, 0.15);
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-subtle: rgba(10, 132, 255, 0.15);
   
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.65);
 }
 
 * {
@@ -89,6 +97,12 @@
   margin: 0;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -101,22 +115,51 @@ body {
   display: flex;
   flex-direction: column;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ==================== 顶部导航 (Apple Minimal Bar) ==================== */
+/* 全局温润极简细滚动条 (Apple / macOS Native Feel) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: var(--radius-pill);
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.24);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* ==================== 顶部导航 (Apple Floating Glass Bar) ==================== */
 .app-header {
-  background: var(--bg-surface);
+  background: rgba(251, 251, 250, 0.85);
   border-bottom: 1px solid var(--border-subtle);
   padding: 0 24px;
-  height: 60px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   position: sticky;
   top: 0;
   z-index: 40;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+[data-theme="dark"] .app-header {
+  background: rgba(28, 28, 31, 0.85);
 }
 
 .brand {
@@ -124,10 +167,16 @@ body {
   align-items: center;
   gap: 10px;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15.5px;
   letter-spacing: -0.2px;
   color: var(--text-main);
   cursor: pointer;
+  user-select: none;
+  transition: opacity 0.15s ease;
+}
+
+.brand:hover {
+  opacity: 0.85;
 }
 
 .brand .logo-icon {
@@ -135,51 +184,61 @@ body {
   height: 28px;
   background: var(--text-main);
   color: var(--bg-surface);
-  border-radius: 7px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13.5px;
   box-shadow: var(--shadow-sm);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+.brand:hover .logo-icon {
+  transform: scale(1.05);
+}
+
+/* 桌面端居中药丸胶囊分段导航 (Segmented Pill Capsule) */
 .header-nav {
   display: flex;
   align-items: center;
-  gap: 6px;
+  background: var(--bg-subtle);
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-subtle);
+  gap: 2px;
 }
 
 .nav-pill-btn {
   background: transparent;
-  border: 1px solid transparent;
+  border: none;
   color: var(--text-muted);
   font-size: 13px;
   font-weight: 500;
-  padding: 6px 14px;
-  border-radius: 20px;
+  padding: 5px 14px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.15s ease;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
 }
 
 .nav-pill-btn:hover {
-  background: var(--bg-subtle);
   color: var(--text-main);
 }
 
 .nav-pill-btn.active {
-  background: var(--bg-subtle);
+  background: var(--bg-surface);
   color: var(--text-main);
   font-weight: 600;
-  border-color: var(--border-subtle);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
 .header-tools {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .btn-record {
@@ -187,9 +246,9 @@ body {
   color: var(--bg-surface);
   border: none;
   font-size: 13px;
-  font-weight: 500;
-  padding: 7px 16px;
-  border-radius: 20px;
+  font-weight: 600;
+  padding: 6px 15px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -203,7 +262,7 @@ body {
 }
 
 .btn-record:active {
-  transform: scale(0.98);
+  transform: scale(0.97);
 }
 
 .icon-btn-minimal {
@@ -212,12 +271,24 @@ body {
   color: var(--text-muted);
   width: 34px;
   height: 34px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 15px;
+  transition: all 0.15s ease;
+}
+
+.icon-btn-minimal:hover {
+  background: var(--bg-subtle);
+  color: var(--text-main);
+  border-color: var(--border-subtle);
+}
+
+.icon-btn-minimal:active {
+  transform: scale(0.95);
+}
   transition: all 0.15s ease;
 }
 
@@ -663,13 +734,17 @@ body {
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.25);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 100;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] .drawer-backdrop {
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .drawer-backdrop.active {
@@ -685,12 +760,23 @@ body {
   width: 100%;
   max-width: 480px;
   background: var(--bg-surface);
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.1);
+  border-left: 1px solid var(--border-subtle);
+  border-top-left-radius: var(--radius-lg);
+  border-bottom-left-radius: var(--radius-lg);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.12);
   z-index: 101;
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .drawer-panel {
+    max-width: 100%;
+    border-radius: 0;
+    border-left: none;
+  }
 }
 
 .drawer-backdrop.active .drawer-panel {
@@ -1078,29 +1164,29 @@ body {
   gap: 4px;
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 12px;
+  padding: 2.5px 8px;
+  border-radius: var(--radius-pill);
   white-space: nowrap;
 }
 .bom-badge.match {
-  background: rgba(22, 163, 74, 0.1);
-  color: #16a34a;
-  border: 1px solid rgba(22, 163, 74, 0.25);
+  background: var(--badge-match-bg);
+  color: var(--badge-match-text);
+  border: 1px solid rgba(21, 128, 61, 0.2);
 }
 .bom-badge.sub {
-  background: rgba(2, 132, 199, 0.1);
-  color: #0284c7;
-  border: 1px solid rgba(2, 132, 199, 0.25);
+  background: var(--badge-sub-bg);
+  color: var(--badge-sub-text);
+  border: 1px solid rgba(29, 78, 216, 0.2);
 }
 .bom-badge.short {
-  background: rgba(217, 119, 6, 0.1);
-  color: #d97706;
-  border: 1px solid rgba(217, 119, 6, 0.25);
+  background: var(--badge-short-bg);
+  color: var(--badge-short-text);
+  border: 1px solid rgba(180, 83, 9, 0.2);
 }
 .bom-badge.lack {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
-  border: 1px solid rgba(220, 38, 38, 0.25);
+  background: var(--badge-lack-bg);
+  color: var(--badge-lack-text);
+  border: 1px solid rgba(185, 28, 28, 0.2);
 }
 
 /* 底部浮动胶囊操作坞 (Apple Floating Dock) */
@@ -1373,14 +1459,14 @@ body {
 
 .box-card {
   background: var(--bg-surface);
-  border: 1.5px solid var(--border-subtle);
-  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   padding: 16px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: all 0.15s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   cursor: default;
 }
@@ -1393,8 +1479,8 @@ body {
 
 .box-card.is-selected {
   border-color: var(--accent);
-  background: rgba(35, 131, 226, 0.02);
-  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--bg-surface);
+  box-shadow: 0 0 0 1.5px var(--accent), var(--shadow-md);
 }
 
 .box-card-top {
@@ -2451,16 +2537,17 @@ body {
 }
 
 .dashboard-card {
-  background: var(--bg-subtle);
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
-  min-height: 98px;
+  min-height: 102px;
+  box-shadow: var(--shadow-sm);
 }
 
 .clickable-dash-card {
@@ -2468,10 +2555,10 @@ body {
 }
 
 .clickable-dash-card:hover {
-  background: var(--bg-surface-hover);
+  background: var(--bg-surface);
   border-color: var(--border-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+  transform: translateY(-1.5px);
+  box-shadow: var(--shadow-md);
 }
 
 .dash-card-header {
@@ -4444,8 +4531,101 @@ body {
   color: #b45309;
 }
 
-/* 响应式断点微调 */
+/* ==================== 移动端原生触感底部导航栏 (Apple Thumb Bar) ==================== */
+.mobile-bottom-nav {
+  display: none;
+}
+
 @media (max-width: 768px) {
+  /* 隐藏桌面端顶栏导航药丸 */
+  .app-header .header-nav {
+    display: none !important;
+  }
+  
+  .app-header {
+    padding: 0 16px;
+    height: 52px;
+  }
+
+  .main-wrapper {
+    padding: 12px 14px 82px;
+  }
+
+  /* 移动端底部原生触感导航栏 */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 58px;
+    background: rgba(251, 251, 250, 0.92);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    border-top: 1px solid var(--border-subtle);
+    z-index: 100;
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px));
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.03);
+  }
+
+  [data-theme="dark"] .mobile-bottom-nav {
+    background: rgba(28, 28, 31, 0.92);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 4px 0;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: transform 0.15s ease, color 0.15s ease;
+    user-select: none;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-nav-item .mobile-nav-icon {
+    font-size: 19px;
+    line-height: 1.1;
+    margin-bottom: 2px;
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .mobile-nav-item .mobile-nav-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: -0.2px;
+    color: var(--text-muted);
+    transition: color 0.15s ease, font-weight 0.15s ease;
+  }
+
+  .mobile-nav-item:active {
+    transform: scale(0.92);
+  }
+
+  .mobile-nav-item.active .mobile-nav-icon {
+    transform: scale(1.12);
+  }
+
+  .mobile-nav-item.active .mobile-nav-label {
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  /* 移动端扫码悬浮药丸上移，精准避开底部导航栏 */
+  .btn-floating-scanner {
+    bottom: 74px !important;
+    right: 16px !important;
+  }
+
   .inventory-grid-container {
     grid-template-columns: 1fr;
     gap: 12px;

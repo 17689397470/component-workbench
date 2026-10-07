@@ -74,6 +74,7 @@ function switchNavTab(tabId) {
   const target = document.getElementById(tabId);
   if (target) target.style.display = 'block';
 
+  // 同步桌面端顶栏药丸激活态
   const btnInv = document.getElementById('nav-btn-inventory');
   if (btnInv) btnInv.classList.toggle('active', tabId === 'tab-inventory');
   const btnBoxes = document.getElementById('nav-btn-boxes');
@@ -82,6 +83,11 @@ function switchNavTab(tabId) {
   if (btnBom) btnBom.classList.toggle('active', tabId === 'tab-bom');
   const btnProjects = document.getElementById('nav-btn-projects');
   if (btnProjects) btnProjects.classList.toggle('active', tabId === 'tab-projects');
+
+  // 同步移动端底部触感导航栏激活态
+  document.querySelectorAll('.mobile-nav-item').forEach(item => {
+    item.classList.toggle('active', item.getAttribute('data-tab') === tabId);
+  });
 
   window.scrollTo({ top: 0, behavior: 'smooth' });
 

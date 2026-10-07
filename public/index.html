@@ -1786,6 +1786,26 @@
     </div>
   </div>
 
+  <!-- ==================== 移动端原生触感底部导航栏 (Apple Thumb Bar) ==================== -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="移动端底部导航">
+    <button type="button" class="mobile-nav-item active" data-tab="tab-inventory" onclick="switchNavTab('tab-inventory')">
+      <span class="mobile-nav-icon">📦</span>
+      <span class="mobile-nav-label">我的库存</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-boxes" onclick="switchNavTab('tab-boxes')">
+      <span class="mobile-nav-icon">🗄️</span>
+      <span class="mobile-nav-label">物理收纳</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-bom" onclick="switchNavTab('tab-bom')">
+      <span class="mobile-nav-icon">📋</span>
+      <span class="mobile-nav-label">BOM比对</span>
+    </button>
+    <button type="button" class="mobile-nav-item" data-tab="tab-projects" onclick="switchNavTab('tab-projects')">
+      <span class="mobile-nav-icon">🛠️</span>
+      <span class="mobile-nav-label">制作项目</span>
+    </button>
+  </nav>
+
   <!-- 移动端右下角悬浮大按钮 (沉浸连扫入库) -->
   <button type="button" id="btn-floating-scanner" class="btn-floating-scanner" onclick="openImmersiveScanner()" title="打开手机沉浸式扫码与拍标签录入">
     <span>📷</span>
