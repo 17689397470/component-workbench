@@ -1,5 +1,7 @@
-# 依赖包
+# 依赖包与构建产物
 node_modules/
+frontend/node_modules/
+dist/
 
 # 数据库（含个人库存数据，不上传）
 data/

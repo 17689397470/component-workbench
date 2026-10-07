@@ -34,7 +34,11 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(path.join(__dirname, 'public'), {
+const distDir = path.join(__dirname, 'dist');
+const hasDistBuild = fs.existsSync(path.join(distDir, 'index.html'));
+const staticRootDir = hasDistBuild ? distDir : path.join(__dirname, 'public');
+
+app.use(express.static(staticRootDir, {
   etag: false,
   maxAge: 0,
   setHeaders: (res) => {
@@ -107,6 +111,42 @@ app.get('/api/components/categories', async (req, res) => {
   try {
     const stats = await db.getCategoryStats();
     res.json({ success: true, data: stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 4.1 获取工坊宏观大盘统计 (前端统一大盘)
+app.get('/api/dashboard/stats', async (req, res) => {
+  try {
+    const catStats = await db.getCategoryStats();
+    const lowStock = await db.getLowStockList();
+    const boxes = await db.getBoxesSummary();
+
+    let totalTypes = 0;
+    let totalPieces = 0;
+    (catStats || []).forEach(c => {
+      totalTypes += (c.count || 0);
+      totalPieces += (c.total_qty || 0);
+    });
+
+    const categoryDistribution = (catStats || []).map(c => ({
+      category: c.category,
+      count: c.count,
+      total_quantity: c.total_qty,
+      percentage: totalPieces > 0 ? Math.round(((c.total_qty || 0) / totalPieces) * 100) : 0
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        totalTypes,
+        totalPieces,
+        boxesCount: (boxes || []).length,
+        lowStockCount: (lowStock || []).length,
+        categoryDistribution
+      }
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1129,8 +1169,13 @@ app.post('/api/scan/resolve', async (req, res) => {
   }
 });
 
-// 兜底单页路由
-app.get('*', (req, res) => {
+// 兜底单页路由 (优先使用全新 React 生产构建产物)
+app.get('*', (req, res, next) => {
+  if (req.url.startsWith('/api')) return next();
+  const distIndex = path.join(__dirname, 'dist', 'index.html');
+  if (fs.existsSync(distIndex)) {
+    return res.sendFile(distIndex);
+  }
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 

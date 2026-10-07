@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Apple / Craft 温润米白纸质基底 */
+  --bg-canvas: #fbfbfa;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f7f6f4;
+  --bg-subtle: #f3f2ee;
+  --bg-input: #ffffff;
+
+  --border-subtle: #eae9e4;
+  --border-hover: #dad9d4;
+  --border-focus: #0071e3;
+
+  --text-main: #1d1d1f;
+  --text-muted: #6e6e73;
+  --text-dim: #86868b;
+
+  --badge-match-bg: #ecfdf5;
+  --badge-match-text: #15803d;
+
+  --badge-sub-bg: #eff6ff;
+  --badge-sub-text: #1d4ed8;
+
+  --badge-short-bg: #fffbeb;
+  --badge-short-text: #b45309;
+
+  --badge-lack-bg: #fef2f2;
+  --badge-lack-text: #b91c1c;
+
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --accent-subtle: #f0f7ff;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="dark"] {
+  --bg-canvas: #121214;
+  --bg-surface: #1c1c1f;
+  --bg-surface-hover: #26262a;
+  --bg-subtle: #242428;
+  --bg-input: #18181b;
+
+  --border-subtle: #2c2c30;
+  --border-hover: #3d3d42;
+  --border-focus: #0a84ff;
+
+  --text-main: #f5f5f7;
+  --text-muted: #a1a1a6;
+  --text-dim: #6e6e73;
+
+  --badge-match-bg: rgba(34, 197, 94, 0.14);
+  --badge-match-text: #4ade80;
+
+  --badge-sub-bg: rgba(56, 189, 248, 0.14);
+  --badge-sub-text: #38bdf8;
+
+  --badge-short-bg: rgba(245, 158, 11, 0.14);
+  --badge-short-text: #fbbf24;
+
+  --badge-lack-bg: rgba(239, 68, 68, 0.14);
+  --badge-lack-text: #f87171;
+
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-subtle: rgba(10, 132, 255, 0.15);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.65);
+}
+
+html {
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
+}
+
+/* 全局极简细微滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.24);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
