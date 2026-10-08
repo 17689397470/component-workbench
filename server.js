@@ -541,33 +541,68 @@ app.get('/api/storage-boxes/:id/grid', async (req, res) => {
   }
 });
 
-// 12.5 [Boxes 2.0] 将元器件绑定或移位到具体格位
-app.post('/api/storage-boxes/assign-slot', async (req, res) => {
+// 12.5 [Boxes 2.0] 将元器件绑定或移位到具体格位 (双路由兼容: /assign & /assign-slot)
+const handleAssignSlot = async (req, res) => {
   try {
-    const { component_id, box_name, slot_key } = req.body;
-    if (!component_id || !box_name || !slot_key) {
+    const component_id = req.body.component_id || req.body.componentId;
+    const box_name = req.body.box_name || req.body.boxName;
+    const slot = req.body.slot || req.body.slot_key || req.body.slotKey;
+
+    if (!component_id || !box_name || !slot) {
       return res.status(400).json({ success: false, error: '缺少物料ID、盒子名称或格位代码' });
     }
-    const result = await db.assignComponentToSlot(parseInt(component_id, 10), box_name, slot_key);
-    res.json({ success: true, data: result });
+    const result = await db.assignComponentToSlot(parseInt(component_id, 10), box_name, slot);
+    res.json({
+      success: true,
+      newLocation: result.location,
+      data: result
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
-});
+};
+app.post('/api/storage-boxes/assign', handleAssignSlot);
+app.post('/api/storage-boxes/assign-slot', handleAssignSlot);
 
-// 12.6 [Boxes 2.0] 清除元器件格位 (移入待分配散料区)
+// 12.6 [Boxes 2.0] 清除元器件格位 (移入待分配散料区或完全移出)
 app.post('/api/storage-boxes/clear-slot', async (req, res) => {
   try {
-    const { component_id } = req.body;
+    const component_id = req.body.component_id || req.body.componentId;
+    const keep_in_box = req.body.keep_in_box !== false;
     if (!component_id) return res.status(400).json({ success: false, error: '缺少物料ID' });
-    const result = await db.removeComponentFromSlot(parseInt(component_id, 10));
-    res.json({ success: true, data: result });
+
+    let result;
+    if (keep_in_box) {
+      result = await db.removeComponentFromSlot(parseInt(component_id, 10));
+    } else {
+      await db.updateComponent(parseInt(component_id, 10), { location: '' });
+      result = { success: true, componentId: parseInt(component_id, 10), location: '' };
+    }
+    res.json({
+      success: true,
+      newLocation: result.location,
+      data: result
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// 12.7 [Boxes 2.0] 查询元器件具体的物理收纳盒与格位定位器
+// 12.7 [Boxes 2.0] 物理仓位透视罗盘 (支持 component_id 或 location 字符串)
+app.get('/api/storage-boxes/locate', async (req, res) => {
+  try {
+    const { component_id, location } = req.query;
+    const locator = await db.getComponentLocator({
+      component_id: component_id ? parseInt(component_id, 10) : undefined,
+      location: location ? String(location) : undefined
+    });
+    if (!locator) return res.status(404).json({ success: false, error: '未找到对应仓位或元器件' });
+    res.json({ success: true, data: locator });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/components/:id/locator', async (req, res) => {
   try {
     const locator = await db.getComponentLocator(parseInt(req.params.id, 10));
