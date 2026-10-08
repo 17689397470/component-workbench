@@ -248,15 +248,15 @@ export const ProjectsView: React.FC = () => {
             </div>
           </div>
 
-          {/* 左侧主体：项目列表 */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 divide-y divide-border-subtle/50">
+          {/* 左侧主体：项目列表 (工规紧凑工程列表行，绝无 AI 生硬竖色条) */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {loading && projects.length === 0 ? (
               <div className="py-12 text-center text-xs text-text-muted flex flex-col items-center gap-2">
-                <Hammer className="w-6 h-6 text-accent animate-pulse" />
-                <span>加载制作项目中...</span>
+                <Hammer className="w-6 h-6 text-accent animate-pulse stroke-[2.2]" />
+                <span className="font-bold">加载制作项目中...</span>
               </div>
             ) : filteredProjects.length === 0 ? (
-              <div className="py-8 text-center text-xs text-text-muted">未找到匹配制作项目</div>
+              <div className="py-8 text-center text-xs text-text-muted font-bold">未找到匹配制作项目</div>
             ) : (
               filteredProjects.map((p) => {
                 const isSelected = selectedProjectId === p.id;
@@ -270,91 +270,81 @@ export const ProjectsView: React.FC = () => {
                       setSelectedProjectId(p.id);
                       setMobileViewMode('WORKSPACE');
                     }}
-                    className="pt-2 first:pt-0 cursor-pointer select-none group"
+                    className={cn(
+                      'p-2.5 rounded-[3px] border transition-all cursor-pointer select-none group',
+                      isSelected
+                        ? 'bg-accent/[0.09] border-accent/60 shadow-2xs'
+                        : 'bg-surface hover:bg-subtle/80 border-border-subtle hover:border-border-hover'
+                    )}
                   >
-                    <div
-                      className={`p-3 rounded-[3px] border-[1.5px] transition-all flex flex-col justify-between relative ${
-                        isSelected
-                          ? 'border-accent bg-accent/[0.08] shadow-xs'
-                          : 'border-border-subtle bg-surface hover:border-border-hover hover:bg-surface-hover'
-                      }`}
-                    >
-                      {/* 左侧状态色条 (加厚至 5px) */}
-                      <span
-                        className={cn(
-                          'absolute left-0 top-1.5 bottom-1.5 w-[5px] rounded-r-[1px] transition-all',
-                          isCompleted
-                            ? 'bg-emerald-600'
-                            : readiness >= 100
-                            ? 'bg-emerald-500'
-                            : 'bg-amber-500'
-                        )}
-                      />
+                    {/* 第一行：状态指示微灯 + 项目名称 + 打样套数 */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* 工规状态指示灯 (取代俗气的大竖色条) */}
+                        <span
+                          className={cn(
+                            'w-2 h-2 rounded-full shrink-0 ring-2',
+                            isCompleted
+                              ? 'bg-emerald-600 ring-emerald-600/20'
+                              : readiness >= 100
+                              ? 'bg-emerald-500 ring-emerald-500/20'
+                              : 'bg-amber-500 ring-amber-500/20'
+                          )}
+                          title={isCompleted ? '已完工消库' : readiness >= 100 ? '齐套待焊' : '备料中'}
+                        />
 
-                      {/* 标题与状态 */}
-                      <div className="pl-2">
-                        <div className="flex items-start justify-between gap-1.5">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <FolderGit2 className="w-4 h-4 text-accent shrink-0 stroke-[2.2]" />
-                              <h3
-                                className={`text-sm sm:text-base font-black truncate leading-snug ${
-                                  isSelected ? 'text-accent' : 'text-text-main'
-                                }`}
-                                title={p.name}
-                              >
-                                {p.name}
-                              </h3>
-                            </div>
-
-                            <p className="text-xs text-text-muted font-medium mt-1 line-clamp-1">
-                              {p.description || '暂无项目说明'}
-                            </p>
-                          </div>
-
-                          {/* 快捷删除 */}
-                          <button
-                            onClick={(e) => handleDeleteProject(p.id, e)}
-                            className="p-1 text-text-muted hover:text-danger rounded opacity-40 group-hover:opacity-100 transition-opacity shrink-0"
-                            title="删除项目"
-                          >
-                            <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
-                          </button>
-                        </div>
-
-                        {/* 齐套率进度条 (加厚至 h-2) */}
-                        <div className="mt-2.5 space-y-1">
-                          <div className="flex items-center justify-between text-xs font-mono font-bold">
-                            <span className="text-text-muted">
-                              齐套率: {p.ready_items_count || 0}/{p.total_items_count || 0} 项
-                            </span>
-                            <span className={cn('font-black', readiness >= 100 ? 'text-emerald-600' : 'text-accent')}>
-                              {readiness}%
-                            </span>
-                          </div>
-                          <div className="w-full h-2 bg-canvas rounded-full overflow-hidden border border-border-subtle">
-                            <div
-                              className={cn(
-                                'h-full rounded-full transition-all duration-300',
-                                readiness >= 100 ? 'bg-emerald-500' : 'bg-accent'
-                              )}
-                              style={{ width: `${Math.min(100, readiness)}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* 底部数量微标 */}
-                        <div className="mt-2.5 pt-1.5 border-t border-border-subtle flex items-center justify-between text-xs text-text-muted font-mono font-bold">
-                          <span className="font-black text-text-main">x{p.target_qty || 1} 套 (板)</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-amber-600 dark:text-amber-400 font-black flex items-center gap-0.5">
-                              <Lock className="w-3 h-3 stroke-[2.2]" />
-                              <span>已锁 {p.totalPiecesLocked || p.lockedCount || 0} 件</span>
-                            </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all stroke-[2.5]" />
-                          </div>
-                        </div>
+                        <h3
+                          className={cn(
+                            'text-sm font-black truncate leading-snug',
+                            isSelected ? 'text-accent' : 'text-text-main'
+                          )}
+                          title={p.name}
+                        >
+                          {p.name}
+                        </h3>
                       </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-mono text-xs font-black text-text-main px-1.5 py-0.5 bg-canvas border border-border-subtle rounded-[2px]">
+                          x{p.target_qty || 1}套
+                        </span>
+
+                        {/* 悬浮才显示的快捷删除 */}
+                        <button
+                          onClick={(e) => handleDeleteProject(p.id, e)}
+                          className="p-1 text-text-muted hover:text-danger rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="删除项目"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 第二行：说明文字 (若有) */}
+                    {p.description && (
+                      <p className="text-xs text-text-muted font-medium mt-1 truncate pl-4">
+                        {p.description}
+                      </p>
+                    )}
+
+                    {/* 第三行：工规紧凑指标 (等宽字体，齐套率 + 已锁件数) */}
+                    <div className="mt-1.5 pl-4 flex items-center justify-between text-xs font-mono font-bold text-text-muted">
+                      <div className="flex items-center gap-2">
+                        <span>
+                          齐套 <strong className={cn('font-black', readiness >= 100 ? 'text-emerald-600' : 'text-accent')}>{readiness}%</strong>
+                          <span className="text-[11px] font-normal text-text-muted ml-0.5">({p.ready_items_count || 0}/{p.total_items_count || 0}项)</span>
+                        </span>
+                        <span>·</span>
+                        <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                          <Lock className="w-3 h-3 stroke-[2.2]" />
+                          <span>已锁 {p.totalPiecesLocked || p.lockedCount || 0}件</span>
+                        </span>
+                      </div>
+
+                      <ChevronRight className={cn(
+                        'w-3.5 h-3.5 transition-transform stroke-[2.5]',
+                        isSelected ? 'text-accent translate-x-0.5' : 'text-text-muted/60 opacity-0 group-hover:opacity-100'
+                      )} />
                     </div>
                   </div>
                 );

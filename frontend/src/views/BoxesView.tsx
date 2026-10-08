@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Sparkles,
 } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 export const BoxesView: React.FC = () => {
   const { showToast } = useToastStore();
@@ -248,8 +249,8 @@ export const BoxesView: React.FC = () => {
             </div>
           </div>
 
-          {/* 左侧主体：收纳盒列表 (高信息密度工业列表，线条扎实) */}
-          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 divide-y divide-border-subtle">
+          {/* 左侧主体：收纳盒列表 (工规紧凑工程列表行，绝无 AI 生硬竖色条) */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {loading && boxes.length === 0 ? (
               <div className="py-12 text-center text-xs text-text-muted flex flex-col items-center gap-2">
                 <Layers className="w-6 h-6 text-accent animate-pulse stroke-[2.2]" />
@@ -266,110 +267,90 @@ export const BoxesView: React.FC = () => {
                   <div
                     key={b.name}
                     onClick={() => handleSelectBox(b)}
-                    className={`pt-2 first:pt-0 cursor-pointer select-none group`}
+                    className={cn(
+                      'p-2.5 rounded-[3px] border transition-all cursor-pointer select-none group',
+                      isSelected
+                        ? 'bg-accent/[0.09] border-accent/60 shadow-2xs'
+                        : 'bg-surface hover:bg-subtle/80 border-border-subtle hover:border-border-hover'
+                    )}
                   >
-                    <div
-                      className={`p-3 rounded-[3px] border-[1.5px] transition-all flex flex-col justify-between relative ${
-                        isSelected
-                          ? 'border-accent bg-accent/[0.08] shadow-xs'
-                          : 'border-border-subtle bg-surface hover:border-border-hover hover:bg-surface-hover'
-                      }`}
-                    >
-                      {/* 左侧物理色条 (加厚至 5px，色彩浓郁) */}
-                      <span
-                        className="absolute left-0 top-1.5 bottom-1.5 w-[5px] rounded-r-[1px] transition-all"
-                        style={{ backgroundColor: b.color || '#3B82F6' }}
-                      />
+                    {/* 第一行：物理颜色微标 + 容器图标 + 容器名称 + 规格徽章 */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        {/* 物理色标微方块 (融入图标，不搞大竖条) */}
+                        <span
+                          className="w-2.5 h-2.5 rounded-[2px] shrink-0 border border-black/10 shadow-2xs"
+                          style={{ backgroundColor: b.color || '#3B82F6' }}
+                          title={`物理标识色: ${b.color || '#3B82F6'}`}
+                        />
 
-                      {/* 标题与类型 */}
-                      <div className="flex items-start justify-between gap-2 pl-2">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            {b.box_type === 'BOOK' ? (
-                              <BookOpen className="w-4 h-4 text-text-muted shrink-0 stroke-[2.2]" />
-                            ) : b.box_type === 'BIN' ? (
-                              <Archive className="w-4 h-4 text-text-muted shrink-0 stroke-[2.2]" />
-                            ) : (
-                              <Grid className="w-4 h-4 text-text-muted shrink-0 stroke-[2.2]" />
-                            )}
-                            <h3
-                              className={`text-sm sm:text-base font-black truncate leading-snug ${
-                                isSelected ? 'text-accent' : 'text-text-main'
-                              }`}
-                              title={b.name}
-                            >
-                              {b.name}
-                            </h3>
-                          </div>
+                        {b.box_type === 'BOOK' ? (
+                          <BookOpen className="w-3.5 h-3.5 text-text-muted shrink-0 stroke-[2.2]" />
+                        ) : b.box_type === 'BIN' ? (
+                          <Archive className="w-3.5 h-3.5 text-text-muted shrink-0 stroke-[2.2]" />
+                        ) : (
+                          <Grid className="w-3.5 h-3.5 text-text-muted shrink-0 stroke-[2.2]" />
+                        )}
 
-                          <div className="text-xs text-text-muted font-mono font-bold mt-1 truncate">
-                            {b.box_type === 'BOOK'
-                              ? `样品册 · ${b.pages || 1}页 (${b.total_slots || 0}格)`
-                              : b.box_type === 'BIN'
-                              ? '随手盒 / 散料池'
-                              : `${b.rows || 4}行×${b.cols || 6}列 (${b.total_slots || 24}格)`}
-                          </div>
-                        </div>
-
-                        {/* 快捷按钮 */}
-                        <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveLabelBox(b);
-                            }}
-                            className="p-1.5 hover:text-accent hover:bg-subtle rounded text-text-muted"
-                            title="打印物理标签纸"
-                          >
-                            <Printer className="w-3.5 h-3.5 stroke-[2.2]" />
-                          </button>
-                          <button
-                            onClick={(e) => handleEditConfig(b, e)}
-                            className="p-1.5 hover:text-text-main hover:bg-subtle rounded text-text-muted"
-                            title="编辑容器规格"
-                          >
-                            <Settings className="w-3.5 h-3.5 stroke-[2.2]" />
-                          </button>
-                        </div>
+                        <h3
+                          className={cn(
+                            'text-sm font-black truncate leading-snug',
+                            isSelected ? 'text-accent' : 'text-text-main'
+                          )}
+                          title={b.name}
+                        >
+                          {b.name}
+                        </h3>
                       </div>
 
-                      {/* 容量指示微条 (高度加厚至 h-2，边框清晰) */}
-                      {b.box_type !== 'BIN' && (b.total_slots || 0) > 0 && (
-                        <div className="mt-2.5 pl-2 space-y-1">
-                          <div className="flex items-center justify-between text-xs font-mono font-bold">
-                            <span className="text-text-muted">
-                              {b.occupied_slots}/{b.total_slots} 格
+                      {/* 快捷打印与配置 */}
+                      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveLabelBox(b);
+                          }}
+                          className="p-1 hover:text-accent hover:bg-subtle rounded text-text-muted"
+                          title="打印物理标签纸"
+                        >
+                          <Printer className="w-3.5 h-3.5 stroke-[2.2]" />
+                        </button>
+                        <button
+                          onClick={(e) => handleEditConfig(b, e)}
+                          className="p-1 hover:text-text-main hover:bg-subtle rounded text-text-muted"
+                          title="编辑容器规格"
+                        >
+                          <Settings className="w-3.5 h-3.5 stroke-[2.2]" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* 第二行：紧凑规格与容量数据 (高密度工规排版) */}
+                    <div className="mt-1.5 pl-4.5 flex items-center justify-between text-xs font-mono font-bold text-text-muted">
+                      <div className="flex items-center gap-2 truncate">
+                        <span>
+                          {b.box_type === 'BIN' ? '随手盒' : `${rate}%`}
+                          {b.total_slots ? (
+                            <span className="text-[11px] font-normal text-text-muted ml-0.5">
+                              ({b.occupied_slots}/{b.total_slots}格)
                             </span>
-                            <span className="text-accent font-black">{rate}%</span>
-                          </div>
-                          <div className="w-full h-2 bg-canvas rounded-full overflow-hidden border border-border-subtle">
-                            <div
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{
-                                width: `${rate}%`,
-                                backgroundColor: b.color || '#3B82F6',
-                              }}
-                            />
-                          </div>
-                        </div>
-                      )}
+                          ) : null}
+                        </span>
+                        <span>·</span>
+                        <span>{b.item_count}种 ({b.total_quantity}件)</span>
 
-                      {/* 散料待划格微标签 */}
-                      {b.has_unassigned && (
-                        <div className="mt-2 pl-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 font-bold">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0 stroke-[2.2]" />
-                          <span>含有待划入抽屉的散料</span>
-                        </div>
-                      )}
-
-                      {/* 底部数量微标 */}
-                      <div className="mt-2 pl-2 pt-1.5 border-t border-border-subtle flex items-center justify-between text-xs text-text-muted font-mono font-bold">
-                        <span>{b.item_count} 种元器件</span>
-                        <div className="flex items-center gap-1">
-                          <strong className="text-text-main font-black">{b.total_quantity} 件</strong>
-                          <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all stroke-[2.5]" />
-                        </div>
+                        {b.has_unassigned && (
+                          <span className="text-amber-600 dark:text-amber-400 font-bold text-[11px] flex items-center gap-0.5" title="含待划格散料">
+                            <AlertTriangle className="w-3 h-3 stroke-[2.2]" />
+                            <span>散料</span>
+                          </span>
+                        )}
                       </div>
+
+                      <ChevronRight className={cn(
+                        'w-3.5 h-3.5 transition-transform stroke-[2.5] shrink-0',
+                        isSelected ? 'text-accent translate-x-0.5' : 'text-text-muted/60 opacity-0 group-hover:opacity-100'
+                      )} />
                     </div>
                   </div>
                 );
