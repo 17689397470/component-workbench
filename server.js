@@ -17,7 +17,7 @@ const fs = require('fs');
 const db = require('./lib/db');
 const { parseComponentText, parseFreeformBatchText, parseOmniboxText } = require('./lib/parser');
 const { queryOfficialComponent } = require('./lib/lcscService');
-const { parseBOMFile, compareBOMWithStock, generatePickingList, extractPurchaseShortageList } = require('./lib/bomMatcher');
+const { parseBOMFile, parseBOMText, compareBOMWithStock, generatePickingList, extractPurchaseShortageList } = require('./lib/bomMatcher');
 const { parseTaobaoOrderFile } = require('./lib/taobaoParser');
 const taobaoRules = require('./lib/taobaoRules');
 
@@ -488,13 +488,14 @@ app.get('/api/components/export', async (req, res) => {
 // 12. 上传并解析 BOM 文件
 app.post('/api/bom/upload', upload.single('bomFile'), (req, res) => {
   try {
-    if (!req.file || !req.file.buffer) {
+    const file = req.file || (req.files && req.files.bomFile);
+    if (!file || !file.buffer) {
       return res.status(400).json({ success: false, error: '未接收到 BOM 文件' });
     }
-    const parsed = parseBOMFile(req.file.buffer);
+    const parsed = parseBOMFile(file.buffer);
     res.json({
       success: true,
-      filename: req.file.originalname,
+      filename: file.originalname,
       data: parsed
     });
   } catch (err) {
@@ -502,26 +503,98 @@ app.post('/api/bom/upload', upload.single('bomFile'), (req, res) => {
   }
 });
 
-// 13. 执行 BOM 与库存比对
+// 12.1 剪贴板纯文本 / TSV / CSV 极速解析
+app.post('/api/bom/parse-text', (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, error: '请粘贴有效 BOM 表格文本' });
+    }
+    const parsed = parseBOMText(text);
+    res.json({
+      success: true,
+      data: parsed
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: `BOM 文本解析失败: ${err.message}` });
+  }
+});
+
+// 13. 执行 BOM 与库存比对 (支持套数倍数、同类聚拢与记忆替代)
 app.post('/api/bom/compare', async (req, res) => {
   try {
-    const { rows, mapping } = req.body;
+    const { rows, mapping, multiplier = 1, aggregate = true, customRules = [] } = req.body;
     if (!rows || !mapping) {
       return res.status(400).json({ success: false, error: '缺少 BOM 数据或列映射参数' });
     }
 
     const stockList = await db.exportAll();
-    const comparison = compareBOMWithStock(rows, mapping, stockList);
+    const dbRules = await db.getSubstitutes().catch(() => []);
+    const mergedRules = [...dbRules, ...(Array.isArray(customRules) ? customRules : [])];
+
+    const comparison = compareBOMWithStock(rows, mapping, stockList, {
+      multiplier: Math.max(1, parseInt(multiplier, 10) || 1),
+      aggregate: aggregate !== false,
+      customRules: mergedRules
+    });
+
     const pickingList = generatePickingList(comparison.results);
     const shortageList = extractPurchaseShortageList(comparison.results);
 
     res.json({
       success: true,
+      data: {
+        summary: comparison.summary,
+        results: comparison.results,
+        pickingList,
+        shortageList,
+        lcscBatchText: shortageList.lcscBatchText || '',
+        humanReadableListText: shortageList.humanReadableListText || '',
+        multiplier: Math.max(1, parseInt(multiplier, 10) || 1),
+        isAggregated: aggregate !== false
+      },
+      // 向下兼容原有字段
       summary: comparison.summary,
       results: comparison.results,
       pickingList,
-      shortageList
+      shortageList,
+      lcscBatchText: shortageList.lcscBatchText || '',
+      humanReadableListText: shortageList.humanReadableListText || ''
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 13.1 获取已持久化的替代偏好规则
+app.get('/api/bom/rules', async (req, res) => {
+  try {
+    const rules = await db.getSubstitutes();
+    res.json({ success: true, data: rules });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 13.2 新增一条记忆替代偏好规则
+app.post('/api/bom/rules', async (req, res) => {
+  try {
+    const { target_part, substitute_part_id, substitute_name, note } = req.body;
+    if (!target_part || !substitute_name) {
+      return res.status(400).json({ success: false, error: '原型号与替代物料名称不能为空' });
+    }
+    const created = await db.addSubstitute({ target_part, substitute_part_id, substitute_name, note });
+    res.json({ success: true, data: created });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 13.3 删除一条记忆替代偏好规则
+app.delete('/api/bom/rules/:id', async (req, res) => {
+  try {
+    await db.deleteSubstitute(req.params.id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
