@@ -156,7 +156,7 @@ export const ProjectsView: React.FC = () => {
       <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
         {/* 左侧边栏 (Master Panel)：制作项目导航器 */}
         <aside
-          className={`w-full md:w-84 lg:w-90 xl:w-96 flex flex-col min-h-0 bg-surface border border-border-subtle rounded-md overflow-hidden shrink-0 transition-all ${
+          className={`w-full md:w-72 lg:w-80 flex flex-col min-h-0 bg-surface border border-border-subtle rounded-md overflow-hidden shrink-0 transition-all ${
             mobileViewMode === 'WORKSPACE' ? 'hidden md:flex' : 'flex'
           }`}
         >

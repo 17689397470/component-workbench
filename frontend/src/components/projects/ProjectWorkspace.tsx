@@ -12,7 +12,8 @@ import { projectApi } from '../../api/projectApi';
 import { componentApi } from '../../api/componentApi';
 import { bomApi } from '../../api/bomApi';
 import { useToastStore } from '../../store/useToastStore';
-import { KittingBoxSandbox, KittingMaterial, KittingShortageItem } from './KittingBoxSandbox';
+import { KittingMaterial } from './KittingBoxSandbox';
+import { ImmersiveKittingModal } from './ImmersiveKittingModal';
 import {
   FolderGit2,
   Lock,
@@ -39,10 +40,8 @@ import {
   FileSpreadsheet,
   ArrowLeft,
   Sparkles,
-  Maximize2,
+  Target,
   SlidersHorizontal,
-  ChevronDown,
-  ChevronUp,
 } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { cn } from '../../lib/utils';
@@ -78,14 +77,13 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 }) => {
   const { showToast } = useToastStore();
 
-  // 当前工程数据（当处于已建工程模式）
+  // 当前工程数据
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // 极速 BOM 草稿模式相关状态（当 projectId 为 null 或主动进入 BOM 比对）
+  // 极速 BOM 草稿模式相关状态
   const [isFastBomMode, setIsFastBomMode] = useState(false);
-  const [bomInputMode, setBomInputMode] = useState<'paste' | 'file'>('paste');
   const [pasteText, setPasteText] = useState('');
   const [fileName, setFileName] = useState('');
   const [parsingBom, setParsingBom] = useState(false);
@@ -96,14 +94,13 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const [bomShortages, setBomShortages] = useState<ShortageItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 极速 BOM 转存工程弹窗
+  // 转存工程弹窗
   const [saveAsProjectModalOpen, setSaveAsProjectModalOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [autoLockStock, setAutoLockStock] = useState(true);
 
-  // 中栏与右栏沙盘联动状态
-  const [focusedItemId, setFocusedItemId] = useState<string | number | null>(null);
+  // 拣料打卡记忆状态
   const [checkedPicks, setCheckedPicks] = useState<Record<string, boolean>>({});
   const [filterQuery, setFilterQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'SHORTAGE' | 'SUFFICIENT'>('ALL');
@@ -112,17 +109,16 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const [isEditingQty, setIsEditingQty] = useState(false);
   const [targetQtyInput, setTargetQtyInput] = useState<number>(1);
 
-  // 移动端切换：'LIST' (清单) | 'SANDBOX' (2D沙盘)
-  const [mobileTab, setMobileTab] = useState<'LIST' | 'SANDBOX'>('LIST');
+  // 全屏沉浸拿料沙盘模态框
+  const [isKittingSandboxOpen, setIsKittingSandboxOpen] = useState(false);
 
-  // 内联快速加料抽屉
+  // 内联快速加料表单
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [addPartName, setAddPartName] = useState('');
   const [addPkg, setAddPkg] = useState('');
   const [addUnitQty, setAddUnitQty] = useState(1);
   const [addDesignators, setAddDesignators] = useState('');
   const [searchCandidates, setSearchCandidates] = useState<ComponentItem[]>([]);
-  const [searchingCandidates, setSearchingCandidates] = useState(false);
   const [selectedComp, setSelectedComp] = useState<ComponentItem | null>(null);
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
@@ -229,7 +225,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     }
   };
 
-  // 执行 BOM 文本解析与比对
+  // 解析并比对 BOM 文本
   const handleParseAndCompareBomText = async (textToParse?: string) => {
     const text = textToParse || pasteText;
     if (!text.trim()) {
@@ -255,7 +251,10 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           setBomShortages(compRes.data.shortageList || []);
           setCheckedPicks({});
           const sum = compRes.data.summary;
-          const matchPercent = sum.totalItems > 0 ? Math.round(((sum.exactMatchCount + sum.substituteCount) / sum.totalItems) * 100) : 100;
+          const matchPercent =
+            sum.totalItems > 0
+              ? Math.round(((sum.exactMatchCount + sum.substituteCount) / sum.totalItems) * 100)
+              : 100;
           showToast(`✔ 比对完成：齐套率 ${matchPercent}%`, 'success');
         }
       }
@@ -267,7 +266,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     }
   };
 
-  // 处理 BOM 文件上传
+  // 文件上传比对
   const handleFileUpload = async (file: File) => {
     if (!file) return;
     setParsingBom(true);
@@ -298,7 +297,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     }
   };
 
-  // 将当前极速比对结果转存为正式工程
+  // 转存为正式工程
   const handleSaveAsOfficialProject = async () => {
     if (!newProjectName.trim()) {
       showToast('请输入工程名称', 'warn');
@@ -328,9 +327,6 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       if (res.success && res.data) {
         const createdProj = res.data;
         showToast(`✔ 成功保存为硬件工程「${createdProj.name}」！`, 'success');
-        if (autoLockStock && createdProj.id) {
-          await projectApi.lock(createdProj.id).catch(() => {});
-        }
         setSaveAsProjectModalOpen(false);
         onProjectCreated?.(createdProj.id);
         onProjectUpdated?.();
@@ -349,7 +345,6 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       setSearchCandidates([]);
       return;
     }
-    setSearchingCandidates(true);
     try {
       const res = await componentApi.getAll({ q: text.trim() });
       if (res.success && res.data) {
@@ -357,8 +352,6 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       }
     } catch {
       setSearchCandidates([]);
-    } finally {
-      setSearchingCandidates(false);
     }
   };
 
@@ -397,7 +390,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     }
   };
 
-  // 删除单项物料
+  // 删除物料
   const handleRemoveItem = async (itemId: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!project) return;
@@ -430,10 +423,10 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       nextMap[String(m.id)] = !allPicked;
     });
     setCheckedPicks(nextMap);
-    showToast(!allPicked ? '✔ 已标记全部物料取料打卡完成' : '已重置所有取料打卡标记', 'info');
+    showToast(!allPicked ? '✔ 已标记全部物料取料完成' : '已重置所有打卡标记', 'info');
   };
 
-  // 统一转换物料数据为 KittingMaterial 供给右侧沙盘
+  // 统一映射物料供沙盘使用
   const projectMaterials: KittingMaterial[] = useMemo(() => {
     if (!project?.items) return [];
     return project.items.map((it) => ({
@@ -479,31 +472,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     });
   }, [bomResults, checkedPicks]);
 
-  // 缺料汇总
-  const shortages: KittingShortageItem[] = useMemo(() => {
-    if (isFastBomMode) {
-      return bomShortages.map((s) => ({
-        name: s.partName,
-        package: s.footprint,
-        shortageQty: s.missingQty,
-        lcsc: s.lcscPart,
-      }));
-    }
-    if (!project?.items) return [];
-    return project.items
-      .filter((it) => it.status === 'SHORTAGE' || (it.shortage_qty || 0) > 0)
-      .map((it) => ({
-        name: it.part_name,
-        package: it.package,
-        shortageQty: it.shortage_qty || it.total_demand_qty,
-        lcsc: it.comp_lcsc,
-      }));
-  }, [isFastBomMode, bomShortages, project?.items]);
-
-  // 当前激活的物料总集
   const currentMaterials = isFastBomMode ? bomMaterials : projectMaterials;
 
-  // 过滤后的中栏物料列表
+  // 过滤后的物料行
   const filteredMaterials = useMemo(() => {
     return currentMaterials.filter((m) => {
       if (statusFilter === 'SHORTAGE' && m.status !== 'SHORTAGE') return false;
@@ -521,7 +492,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     });
   }, [currentMaterials, statusFilter, filterQuery]);
 
-  // 齐套与打卡统计
+  // 统计指标
   const totalCount = currentMaterials.length;
   const pickedCount = currentMaterials.filter((m) => m.isPicked).length;
   const readyCount = currentMaterials.filter((m) => m.status !== 'SHORTAGE').length;
@@ -529,16 +500,21 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     totalCount > 0
       ? Math.round((readyCount / totalCount) * 100)
       : isFastBomMode && bomSummary && bomSummary.totalItems > 0
-      ? Math.round(((bomSummary.exactMatchCount + bomSummary.substituteCount) / bomSummary.totalItems) * 100)
+      ? Math.round(
+          ((bomSummary.exactMatchCount + bomSummary.substituteCount) / bomSummary.totalItems) * 100
+        )
       : 100;
+
+  const currentProjectName = isFastBomMode ? '极速 BOM 草稿' : project?.name || '制作工程';
+  const currentTargetQty = isFastBomMode ? bomMultiplier : project?.target_qty || 1;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-canvas border border-border-subtle rounded-none overflow-hidden select-none">
       {/* 1. 顶部工规状态与控制台标牌 */}
-      <div className="p-3 bg-surface border-b border-border-subtle shrink-0 flex flex-col gap-2.5">
+      <div className="p-3.5 bg-surface border-b border-border-subtle shrink-0 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* 左侧：返回按键(移动端) + 工程/BOM主标题 */}
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center gap-3 min-w-0">
             {onBackToList && (
               <button
                 onClick={onBackToList}
@@ -549,38 +525,38 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
               </button>
             )}
 
-            <div className="w-8 h-8 rounded-[2px] bg-accent/10 text-accent flex items-center justify-center font-bold shrink-0">
-              {isFastBomMode ? <FileSpreadsheet className="w-4 h-4" /> : <FolderGit2 className="w-4 h-4" />}
+            <div className="w-9 h-9 rounded-[2px] bg-accent/10 text-accent flex items-center justify-center font-bold shrink-0">
+              {isFastBomMode ? <FileSpreadsheet className="w-5 h-5" /> : <FolderGit2 className="w-5 h-5" />}
             </div>
 
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-black text-text-main truncate tracking-tight">
-                  {isFastBomMode ? '极速 BOM 比对与寻料沙盘' : project?.name}
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-black text-text-main truncate tracking-tight">
+                  {currentProjectName}
                 </h2>
 
                 {/* 状态指示徽标 */}
                 {isFastBomMode ? (
-                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-accent/15 text-accent border border-accent/30">
+                  <span className="px-2 py-0.5 rounded-[2px] text-xs font-mono font-bold bg-accent/15 text-accent border border-accent/30">
                     草稿即时比对
                   </span>
                 ) : project?.status === 'COMPLETED' ? (
-                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                  <span className="px-2 py-0.5 rounded-[2px] text-xs font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                     已完工消库
                   </span>
                 ) : readinessRate >= 100 ? (
-                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                  <span className="px-2 py-0.5 rounded-[2px] text-xs font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                     现货齐套待焊
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                  <span className="px-2 py-0.5 rounded-[2px] text-xs font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
                     备料中 ({readinessRate}%)
                   </span>
                 )}
               </div>
 
               {!isFastBomMode && project?.description && (
-                <p className="text-xs text-text-muted truncate max-w-lg mt-0.5">
+                <p className="text-xs text-text-muted truncate max-w-2xl mt-0.5">
                   {project.description}
                 </p>
               )}
@@ -588,9 +564,9 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           </div>
 
           {/* 右侧：套数微调 + 核心工规操作按钮组 */}
-          <div className="flex items-center gap-2 font-mono ml-auto">
+          <div className="flex items-center gap-2.5 font-mono ml-auto">
             {/* 打样套数微调 */}
-            <div className="flex items-center gap-1.5 text-xs text-text-muted bg-canvas px-2.5 py-1 rounded-[2px] border border-border-subtle">
+            <div className="flex items-center gap-1.5 text-xs text-text-muted bg-canvas px-3 py-1.5 rounded-[2px] border border-border-subtle">
               <span>制作目标:</span>
               {isFastBomMode ? (
                 <div className="flex items-center gap-1">
@@ -605,7 +581,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                         handleParseAndCompareBomText();
                       }
                     }}
-                    className="w-12 bg-surface border border-border-subtle rounded-[2px] px-1 py-0.2 text-xs font-bold text-center text-text-main"
+                    className="w-14 bg-surface border border-border-subtle rounded-[2px] px-1 py-0.5 text-xs font-bold text-center text-text-main"
                   />
                   <span>套</span>
                 </div>
@@ -616,18 +592,18 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                     min={1}
                     value={targetQtyInput}
                     onChange={(e) => setTargetQtyInput(parseInt(e.target.value, 10) || 1)}
-                    className="w-12 bg-surface border border-border-subtle rounded-[2px] px-1 py-0.2 text-xs font-bold text-center text-text-main"
+                    className="w-14 bg-surface border border-border-subtle rounded-[2px] px-1 py-0.5 text-xs font-bold text-center text-text-main"
                     autoFocus
                   />
                   <button
                     onClick={handleUpdateTargetQty}
-                    className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded"
+                    className="p-1 text-emerald-600 hover:bg-emerald-50 rounded"
                   >
                     <Check className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => setIsEditingQty(false)}
-                    className="p-0.5 text-text-muted hover:bg-subtle rounded"
+                    className="p-1 text-text-muted hover:bg-subtle rounded"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -648,10 +624,10 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
             {isFastBomMode && bomResults.length > 0 && (
               <button
                 onClick={() => {
-                  setNewProjectName(`BOM项目-${new Date().toLocaleDateString()}`);
+                  setNewProjectName(`BOM工程-${new Date().toLocaleDateString()}`);
                   setSaveAsProjectModalOpen(true);
                 }}
-                className="px-2.5 py-1 text-xs font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-2xs flex items-center gap-1 transition-colors"
+                className="px-3 py-1.5 text-xs font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-2xs flex items-center gap-1.5 transition-colors"
               >
                 <FolderGit2 className="w-3.5 h-3.5" />
                 <span>保存为此工程</span>
@@ -665,7 +641,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                   <button
                     onClick={handleLockStock}
                     disabled={actionLoading}
-                    className="px-2.5 py-1 text-xs font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 rounded-[2px] flex items-center gap-1 transition-colors"
+                    className="px-3 py-1.5 text-xs font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 rounded-[2px] flex items-center gap-1.5 transition-colors"
                     title="锁定当前可用库存，防止被其他工程占用"
                   >
                     <Lock className="w-3.5 h-3.5" />
@@ -675,7 +651,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                   <button
                     onClick={handleUnlockStock}
                     disabled={actionLoading}
-                    className="px-2 py-1 text-xs font-bold bg-canvas text-text-muted border border-border-subtle hover:text-danger rounded-[2px] flex items-center gap-1 transition-colors"
+                    className="px-3 py-1.5 text-xs font-bold bg-canvas text-text-muted border border-border-subtle hover:text-danger rounded-[2px] flex items-center gap-1.5 transition-colors"
                     title="释放已锁定库存"
                   >
                     <Unlock className="w-3.5 h-3.5" />
@@ -687,7 +663,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                   <button
                     onClick={handleCompleteProject}
                     disabled={actionLoading}
-                    className="px-2.5 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] shadow-2xs flex items-center gap-1 transition-colors"
+                    className="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] shadow-2xs flex items-center gap-1.5 transition-colors"
                     title="制作完工并真正从库存中扣减消库"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
@@ -696,35 +672,13 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                 )}
               </>
             )}
-
-            {/* 移动端切换 清单/2D沙盘 药丸 */}
-            <div className="flex md:hidden items-center border border-border-subtle rounded-[2px] p-0.5 bg-canvas">
-              <button
-                onClick={() => setMobileTab('LIST')}
-                className={cn(
-                  'px-2 py-0.5 text-xs font-bold rounded-[2px]',
-                  mobileTab === 'LIST' ? 'bg-text-main text-surface' : 'text-text-muted'
-                )}
-              >
-                清单
-              </button>
-              <button
-                onClick={() => setMobileTab('SANDBOX')}
-                className={cn(
-                  'px-2 py-0.5 text-xs font-bold rounded-[2px]',
-                  mobileTab === 'SANDBOX' ? 'bg-text-main text-surface' : 'text-text-muted'
-                )}
-              >
-                2D沙盘
-              </button>
-            </div>
           </div>
         </div>
 
-        {/* 2. 工规 KPI 分段条：齐套率 + 取料打卡计数 + 货位覆盖 */}
-        <div className="flex items-center justify-between gap-3 text-xs font-mono bg-canvas px-3 py-1.5 border border-border-subtle rounded-[2px]">
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="flex items-center gap-1.5">
+        {/* 2. 工规 KPI 分段条 + 全屏拿料沙盘主行动大按钮 (醒目聚焦，拒绝拥挤) */}
+        <div className="flex items-center justify-between gap-3 text-xs font-mono bg-canvas px-4 py-2 border border-border-subtle rounded-[2px] flex-wrap">
+          <div className="flex items-center gap-5 flex-wrap">
+            <div className="flex items-center gap-2">
               <span className="text-text-muted font-bold">现货齐套率:</span>
               <span
                 className={cn(
@@ -741,7 +695,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
             <span className="text-border-subtle">|</span>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="text-text-muted font-bold">取料打卡:</span>
               <span className="font-black text-sm text-text-main">
                 {pickedCount}/{totalCount}
@@ -750,410 +704,395 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* 核心主行动大按钮：进入现场全屏拿料沙盘！ */}
+          <div className="flex items-center gap-3">
             <button
               onClick={handleToggleSelectAllPicks}
-              className="text-[11px] font-bold text-accent hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-text-muted hover:text-text-main flex items-center gap-1"
             >
               <CheckSquare className="w-3.5 h-3.5" />
-              <span>{pickedCount === totalCount ? '取消全取' : '全部打卡'}</span>
+              <span>{pickedCount === totalCount ? '取消全选' : '全部打卡'}</span>
+            </button>
+
+            {totalCount > 0 && (
+              <button
+                onClick={() => setIsKittingSandboxOpen(true)}
+                className="px-4 py-1.5 text-xs font-black bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-sm flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-95 animate-pulse"
+                title="全屏进入 2D 亚克力收纳柜大矩阵现场拿料"
+              >
+                <Target className="w-4 h-4" />
+                <span>🚀 开始现场配料 / 进入拿料沙盘 ({pickedCount}/{totalCount})</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* 2. 主体全宽物料工作区 (独占 100% 视口，通透开阔) */}
+      <div className="flex-1 flex flex-col min-h-0 bg-surface overflow-hidden">
+        {/* A. 极速 BOM 录入框 (在草稿模式下展开) */}
+        {isFastBomMode && bomResults.length === 0 && (
+          <div className="p-4 bg-canvas/60 border-b border-border-subtle space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-black text-text-main">
+                <ClipboardPaste className="w-4 h-4 text-accent" />
+                <span>粘贴或导入 BOM 数据</span>
+              </div>
+              <button
+                onClick={() => setPasteText(SAMPLE_BOM_TEXT)}
+                className="text-xs text-accent hover:underline font-mono font-bold flex items-center gap-1"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>填入立创EDA样例</span>
+              </button>
+            </div>
+
+            <textarea
+              rows={5}
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              placeholder="直接从立创EDA、Excel、Altium Designer等复制表格并在此处粘贴（支持制表符 Tab 分隔）..."
+              className="w-full bg-canvas border border-border-subtle rounded-[2px] p-3 font-mono text-xs text-text-main focus:outline-none focus:border-accent"
+            />
+
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+                  }}
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 text-xs font-mono font-bold text-text-muted hover:text-text-main border border-border-subtle rounded-[2px] bg-canvas flex items-center gap-1.5"
+                >
+                  <UploadCloud className="w-3.5 h-3.5" />
+                  <span>上传 Excel/CSV</span>
+                </button>
+                {fileName && <span className="text-xs font-mono text-text-muted">{fileName}</span>}
+              </div>
+
+              <button
+                onClick={() => handleParseAndCompareBomText()}
+                disabled={parsingBom || comparingBom}
+                className="px-5 py-2 text-xs font-black bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-xs flex items-center gap-1.5"
+              >
+                {parsingBom || comparingBom ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>立即解析 BOM 并比对库存</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* B. 清单搜索与过滤工具栏 */}
+        <div className="px-4 py-2.5 bg-canvas/40 border-b border-border-subtle flex items-center justify-between gap-3 shrink-0">
+          {/* 紧凑搜索框 */}
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              placeholder="搜索型号、封装、货位、位号..."
+              className="w-full pl-8 pr-6 py-1.5 text-xs font-mono bg-canvas border border-border-subtle rounded-[2px] text-text-main placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
+            />
+            {filterQuery && (
+              <button
+                onClick={() => setFilterQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* 状态过滤胶囊 */}
+          <div className="flex items-center gap-1.5 text-xs font-mono">
+            <button
+              onClick={() => setStatusFilter('ALL')}
+              className={cn(
+                'px-2.5 py-1 rounded-[2px] border transition-colors',
+                statusFilter === 'ALL'
+                  ? 'bg-accent/10 text-accent font-bold border-accent/30'
+                  : 'bg-canvas text-text-muted border-border-subtle'
+              )}
+            >
+              全部({totalCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter('SHORTAGE')}
+              className={cn(
+                'px-2.5 py-1 rounded-[2px] border transition-colors',
+                statusFilter === 'SHORTAGE'
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border-amber-500/40'
+                  : 'bg-canvas text-text-muted border-border-subtle'
+              )}
+            >
+              缺料({totalCount - readyCount})
+            </button>
+            <button
+              onClick={() => setStatusFilter('SUFFICIENT')}
+              className={cn(
+                'px-2.5 py-1 rounded-[2px] border transition-colors',
+                statusFilter === 'SUFFICIENT'
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border-emerald-500/40'
+                  : 'bg-canvas text-text-muted border-border-subtle'
+              )}
+            >
+              充足({readyCount})
             </button>
           </div>
+
+          {/* 追加物料 */}
+          {!isFastBomMode && project && (
+            <button
+              onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}
+              className="px-3 py-1 text-xs font-bold text-accent hover:bg-accent/10 border border-accent/30 rounded-[2px] flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>追加物料</span>
+            </button>
+          )}
         </div>
-      </div>
 
-      {/* 2. 主体工作区：中栏(物料清单与BOM草稿) + 右栏(常驻2D亚克力沙盘) */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
-        {/* 中栏：BOM录入 + 物料需求清单 */}
-        <div
-          className={cn(
-            'flex-1 flex flex-col min-h-0 bg-surface border-r border-border-subtle overflow-hidden',
-            mobileTab === 'SANDBOX' ? 'hidden md:flex' : 'flex'
-          )}
-        >
-          {/* A. 极速 BOM 录入框 (当在草稿比对模式且未解析，或随时展开) */}
-          {isFastBomMode && bomResults.length === 0 && (
-            <div className="p-4 bg-canvas/60 border-b border-border-subtle space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-black text-text-main">
-                  <ClipboardPaste className="w-4 h-4 text-accent" />
-                  <span>粘贴或导入 BOM 数据（即刻联动右侧 2D 亚克力收纳柜亮灯）</span>
-                </div>
-                <button
-                  onClick={() => setPasteText(SAMPLE_BOM_TEXT)}
-                  className="text-xs text-accent hover:underline font-mono font-bold flex items-center gap-1"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>填入立创EDA样例</span>
-                </button>
-              </div>
-
-              <textarea
-                rows={5}
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                placeholder="直接从立创EDA、Excel、Altium Designer等复制表格并在此处粘贴（支持制表符 Tab 分隔）..."
-                className="w-full bg-canvas border border-border-subtle rounded-[2px] p-2.5 font-mono text-xs text-text-main focus:outline-none focus:border-accent"
-              />
-
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={(e) => {
-                      if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
-                    }}
-                    accept=".xlsx,.xls,.csv"
-                    className="hidden"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-3 py-1.5 text-xs font-mono font-bold text-text-muted hover:text-text-main border border-border-subtle rounded-[2px] bg-canvas flex items-center gap-1.5"
-                  >
-                    <UploadCloud className="w-3.5 h-3.5" />
-                    <span>上传 Excel/CSV</span>
-                  </button>
-                  {fileName && <span className="text-xs font-mono text-text-muted">{fileName}</span>}
-                </div>
-
-                <button
-                  onClick={() => handleParseAndCompareBomText()}
-                  disabled={parsingBom || comparingBom}
-                  className="px-4 py-1.5 text-xs font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-xs flex items-center gap-1.5"
-                >
-                  {parsingBom || comparingBom ? (
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-3.5 h-3.5" />
-                  )}
-                  <span>立即解析并投射沙盘</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* B. 清单搜索与过滤工具栏 */}
-          <div className="px-3 py-2 bg-canvas/40 border-b border-border-subtle flex items-center justify-between gap-2 shrink-0">
-            {/* 紧凑搜索框 */}
-            <div className="relative flex-1 max-w-xs">
-              <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={filterQuery}
-                onChange={(e) => setFilterQuery(e.target.value)}
-                placeholder="搜索型号、封装、货位、位号..."
-                className="w-full pl-8 pr-6 py-1 text-xs font-mono bg-canvas border border-border-subtle rounded-[2px] text-text-main placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
-              />
-              {filterQuery && (
-                <button
-                  onClick={() => setFilterQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-xs"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            {/* 状态过滤胶囊 */}
-            <div className="flex items-center gap-1 text-xs font-mono">
+        {/* C. 内联快速加料表单 */}
+        {isQuickAddOpen && (
+          <div className="p-3 bg-canvas border-b border-border-subtle space-y-2 animate-in slide-in-from-top duration-150">
+            <div className="text-xs font-black text-text-main flex items-center justify-between">
+              <span>追加单项物料到当前工程</span>
               <button
-                onClick={() => setStatusFilter('ALL')}
-                className={cn(
-                  'px-2 py-0.5 rounded-[2px] border transition-colors',
-                  statusFilter === 'ALL'
-                    ? 'bg-accent/10 text-accent font-bold border-accent/30'
-                    : 'bg-canvas text-text-muted border-border-subtle'
-                )}
+                onClick={() => setIsQuickAddOpen(false)}
+                className="text-text-muted hover:text-text-main"
               >
-                全部({totalCount})
-              </button>
-              <button
-                onClick={() => setStatusFilter('SHORTAGE')}
-                className={cn(
-                  'px-2 py-0.5 rounded-[2px] border transition-colors',
-                  statusFilter === 'SHORTAGE'
-                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border-amber-500/40'
-                    : 'bg-canvas text-text-muted border-border-subtle'
-                )}
-              >
-                缺料({totalCount - readyCount})
-              </button>
-              <button
-                onClick={() => setStatusFilter('SUFFICIENT')}
-                className={cn(
-                  'px-2 py-0.5 rounded-[2px] border transition-colors',
-                  statusFilter === 'SUFFICIENT'
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border-emerald-500/40'
-                    : 'bg-canvas text-text-muted border-border-subtle'
-                )}
-              >
-                充足({readyCount})
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* 内联快速加料按钮（正式工程下可用） */}
-            {!isFastBomMode && project && (
-              <button
-                onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}
-                className="px-2 py-1 text-xs font-bold text-accent hover:bg-accent/10 border border-accent/30 rounded-[2px] flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>追加物料</span>
-              </button>
-            )}
-          </div>
-
-          {/* C. 内联快速加料表单 */}
-          {isQuickAddOpen && (
-            <div className="p-3 bg-canvas border-b border-border-subtle space-y-2 animate-in slide-in-from-top duration-150">
-              <div className="text-xs font-black text-text-main flex items-center justify-between">
-                <span>追加单项物料到当前工程</span>
-                <button
-                  onClick={() => setIsQuickAddOpen(false)}
-                  className="text-text-muted hover:text-text-main"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                <div className="sm:col-span-2 relative">
-                  <input
-                    type="text"
-                    value={addPartName}
-                    onChange={(e) => handleSearchCandidates(e.target.value)}
-                    placeholder="输入物料型号/规格（自动联想库存）..."
-                    className="w-full bg-surface border border-border-subtle rounded-[2px] px-2 py-1 text-xs font-mono text-text-main focus:outline-none focus:border-accent"
-                  />
-                  {searchCandidates.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border-subtle rounded-[2px] shadow-md z-30 max-h-40 overflow-y-auto divide-y divide-border-subtle text-xs font-mono">
-                      {searchCandidates.map((c) => (
-                        <div
-                          key={c.id}
-                          onClick={() => {
-                            setSelectedComp(c);
-                            setAddPartName(c.name);
-                            setAddPkg(c.package || '');
-                            setSearchCandidates([]);
-                          }}
-                          className="p-1.5 hover:bg-subtle cursor-pointer flex items-center justify-between"
-                        >
-                          <span className="font-bold text-text-main">{c.name}</span>
-                          <span className="text-text-muted text-[11px]">
-                            {c.package} | 存{c.quantity}件 | {c.location || '无货位'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <input
-                    type="text"
-                    value={addPkg}
-                    onChange={(e) => setAddPkg(e.target.value)}
-                    placeholder="封装 (如 0805)"
-                    className="w-full bg-surface border border-border-subtle rounded-[2px] px-2 py-1 text-xs font-mono text-text-main focus:outline-none focus:border-accent"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <input
-                    type="number"
-                    min={1}
-                    value={addUnitQty}
-                    onChange={(e) => setAddUnitQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                    placeholder="单板用量"
-                    className="w-16 bg-surface border border-border-subtle rounded-[2px] px-2 py-1 text-xs font-mono text-text-main font-bold focus:outline-none focus:border-accent text-center"
-                  />
-                  <button
-                    onClick={handleQuickAddSubmit}
-                    disabled={submittingAdd}
-                    className="flex-1 py-1 bg-accent text-white text-xs font-bold rounded-[2px] hover:bg-accent-hover"
-                  >
-                    确认添加
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* D. 物料需求列表 (紧凑工规列表，点击即联动右侧沙盘) */}
-          <div className="flex-1 overflow-y-auto divide-y divide-border-subtle">
-            {filteredMaterials.length === 0 ? (
-              <div className="py-16 text-center text-xs text-text-muted flex flex-col items-center gap-2">
-                <Box className="w-8 h-8 text-border-hover stroke-[1.5]" />
-                <span className="font-bold">
-                  {isFastBomMode && bomResults.length === 0
-                    ? '请在上方粘贴或上传 BOM 数据，即时开启 2D 沙盘寻料'
-                    : '未找到匹配的物料项目'}
-                </span>
-              </div>
-            ) : (
-              filteredMaterials.map((mat) => {
-                const isFocused = String(focusedItemId) === String(mat.id);
-                const isShortage = mat.status === 'SHORTAGE';
-                const hasLocation = !!mat.location;
-
-                return (
-                  <div
-                    key={mat.id}
-                    onClick={() => setFocusedItemId(mat.id)}
-                    className={cn(
-                      'px-3 py-2 transition-colors cursor-pointer group flex items-center justify-between gap-2.5',
-                      isFocused ? 'bg-accent/[0.08]' : 'hover:bg-subtle/60'
-                    )}
-                  >
-                    {/* 左侧：打卡勾选 + 状态微灯 + 物料核心信息 */}
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      {/* 打卡复选框 */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleTogglePick(mat.id);
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+              <div className="sm:col-span-2 relative">
+                <input
+                  type="text"
+                  value={addPartName}
+                  onChange={(e) => handleSearchCandidates(e.target.value)}
+                  placeholder="输入物料型号/规格（自动联想库存）..."
+                  className="w-full bg-surface border border-border-subtle rounded-[2px] px-2.5 py-1 text-xs font-mono text-text-main focus:outline-none focus:border-accent"
+                />
+                {searchCandidates.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border-subtle rounded-[2px] shadow-md z-30 max-h-40 overflow-y-auto divide-y divide-border-subtle text-xs font-mono">
+                    {searchCandidates.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedComp(c);
+                          setAddPartName(c.name);
+                          setAddPkg(c.package || '');
+                          setSearchCandidates([]);
                         }}
-                        className={cn(
-                          'p-0.5 rounded-[2px] border transition-colors shrink-0',
-                          mat.isPicked
-                            ? 'bg-emerald-600 text-white border-emerald-600'
-                            : 'bg-canvas text-text-muted/40 border-border-subtle hover:border-accent'
-                        )}
-                        title={mat.isPicked ? '已取料' : '点击打卡'}
+                        className="p-1.5 hover:bg-subtle cursor-pointer flex items-center justify-between"
                       >
-                        <Check className="w-3.5 h-3.5 stroke-[2.8]" />
-                      </button>
-
-                      {/* 充足/缺料指示微灯 */}
-                      <span
-                        className={cn(
-                          'w-2 h-2 rounded-full shrink-0 ring-2',
-                          mat.isPicked
-                            ? 'bg-emerald-600 ring-emerald-600/20'
-                            : isShortage
-                            ? 'bg-amber-500 ring-amber-500/20'
-                            : 'bg-emerald-500 ring-emerald-500/20'
-                        )}
-                      />
-
-                      {/* 物料主要信息 */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span
-                            className={cn(
-                              'text-xs font-black truncate leading-snug',
-                              mat.isPicked
-                                ? 'line-through text-text-muted'
-                                : isFocused
-                                ? 'text-accent'
-                                : 'text-text-main'
-                            )}
-                            title={mat.name}
-                          >
-                            {mat.name}
-                          </span>
-
-                          {mat.package && (
-                            <span className="px-1.5 py-0.2 bg-canvas border border-border-subtle text-[11px] font-mono text-text-muted rounded-[2px] shrink-0 font-bold">
-                              {mat.package}
-                            </span>
-                          )}
-
-                          {mat.designators && (
-                            <span
-                              className="text-[11px] font-mono text-text-muted truncate max-w-[120px]"
-                              title={mat.designators}
-                            >
-                              [{mat.designators}]
-                            </span>
-                          )}
-                        </div>
-
-                        {/* 第二行：需求用量标尺 */}
-                        <div className="flex items-center gap-2 text-[11px] font-mono text-text-muted mt-0.5">
-                          <span>
-                            需:{' '}
-                            <strong className="text-text-main font-bold">
-                              {mat.demandQty} 件
-                            </strong>
-                          </span>
-                          <span>·</span>
-                          <span>
-                            存:{' '}
-                            <strong
-                              className={cn(
-                                'font-bold',
-                                isShortage ? 'text-amber-600 dark:text-amber-400' : 'text-text-main'
-                              )}
-                            >
-                              {mat.stockQty ?? 0} 件
-                            </strong>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 右侧：物理货位徽标 (杀手级交互：点击直达 2D 亚克力对应抽屉) */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {hasLocation ? (
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFocusedItemId(mat.id);
-                          }}
-                          className={cn(
-                            'px-2 py-1 rounded-[2px] font-mono text-xs font-black flex items-center gap-1 border transition-all cursor-pointer shadow-2xs',
-                            isFocused
-                              ? 'bg-accent text-white border-accent scale-105'
-                              : 'bg-accent/10 text-accent border-accent/30 hover:bg-accent/20'
-                          )}
-                          title="点击在右侧 2D 沙盘中高亮定位抽屉"
-                        >
-                          <Box className="w-3 h-3" />
-                          <span>{mat.location}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[11px] font-mono text-text-muted/60 px-1.5 py-0.5 border border-dashed border-border-subtle rounded-[2px]">
-                          未入柜
+                        <span className="font-bold text-text-main">{c.name}</span>
+                        <span className="text-text-muted text-[11px]">
+                          {c.package} | 存{c.quantity}件 | {c.location || '无货位'}
                         </span>
-                      )}
-
-                      {/* 正式项目下删除项 */}
-                      {!isFastBomMode && project && (
-                        <button
-                          onClick={(e) => handleRemoveItem(mat.id as number, e)}
-                          className="p-1 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="从项目中删除"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+                )}
+              </div>
 
-        {/* 右栏：常驻 2D 亚克力收纳柜实体沙盘 (核心视觉枢纽) */}
-        <div
-          className={cn(
-            'w-full md:w-[460px] lg:w-[500px] xl:w-[540px] flex flex-col min-h-0 bg-canvas overflow-hidden shrink-0',
-            mobileTab === 'LIST' ? 'hidden md:flex' : 'flex'
+              <div>
+                <input
+                  type="text"
+                  value={addPkg}
+                  onChange={(e) => setAddPkg(e.target.value)}
+                  placeholder="封装 (如 0805)"
+                  className="w-full bg-surface border border-border-subtle rounded-[2px] px-2.5 py-1 text-xs font-mono text-text-main focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  value={addUnitQty}
+                  onChange={(e) => setAddUnitQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                  placeholder="单板用量"
+                  className="w-16 bg-surface border border-border-subtle rounded-[2px] px-2 py-1 text-xs font-mono text-text-main font-bold focus:outline-none focus:border-accent text-center"
+                />
+                <button
+                  onClick={handleQuickAddSubmit}
+                  disabled={submittingAdd}
+                  className="flex-1 py-1 bg-accent text-white text-xs font-bold rounded-[2px] hover:bg-accent-hover"
+                >
+                  确认添加
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* D. 全宽工规物料清单表格 (清晰通透、字号大、对齐规整) */}
+        <div className="flex-1 overflow-y-auto">
+          {filteredMaterials.length === 0 ? (
+            <div className="py-20 text-center text-xs text-text-muted flex flex-col items-center gap-2">
+              <Box className="w-10 h-10 text-border-hover stroke-[1.5]" />
+              <span className="font-bold text-sm">
+                {isFastBomMode && bomResults.length === 0
+                  ? '请在上方粘贴或上传 BOM 数据开始验料'
+                  : '未找到匹配的物料项目'}
+              </span>
+            </div>
+          ) : (
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-canvas/80 sticky top-0 z-10 border-b border-border-subtle font-mono text-[11px] text-text-muted uppercase">
+                <tr>
+                  <th className="py-2 px-3 w-10 text-center">取料</th>
+                  <th className="py-2 px-3">物料型号 / 规格</th>
+                  <th className="py-2 px-3 w-28">封装</th>
+                  <th className="py-2 px-3">电路位号</th>
+                  <th className="py-2 px-3 w-28">需用 / 存量</th>
+                  <th className="py-2 px-3 w-36">物理货位</th>
+                  <th className="py-2 px-3 w-24">状态</th>
+                  {!isFastBomMode && <th className="py-2 px-3 w-16 text-right">操作</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border-subtle">
+                {filteredMaterials.map((mat) => {
+                  const isShortage = mat.status === 'SHORTAGE';
+                  const hasLocation = !!mat.location;
+
+                  return (
+                    <tr
+                      key={mat.id}
+                      className={cn(
+                        'hover:bg-subtle/70 transition-colors',
+                        mat.isPicked && 'bg-emerald-500/[0.03]'
+                      )}
+                    >
+                      {/* 打卡复选框 */}
+                      <td className="py-2.5 px-3 text-center">
+                        <button
+                          onClick={() => handleTogglePick(mat.id)}
+                          className={cn(
+                            'p-1 rounded-[2px] border transition-colors inline-flex items-center justify-center',
+                            mat.isPicked
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-canvas text-text-muted/40 border-border-subtle hover:border-accent'
+                          )}
+                          title={mat.isPicked ? '已取料' : '点击打卡'}
+                        >
+                          <Check className="w-3.5 h-3.5 stroke-[2.8]" />
+                        </button>
+                      </td>
+
+                      {/* 物料型号 */}
+                      <td className="py-2.5 px-3">
+                        <div
+                          className={cn(
+                            'font-black text-xs sm:text-sm leading-snug',
+                            mat.isPicked ? 'line-through text-text-muted' : 'text-text-main'
+                          )}
+                        >
+                          {mat.name}
+                        </div>
+                      </td>
+
+                      {/* 封装 */}
+                      <td className="py-2.5 px-3">
+                        {mat.package ? (
+                          <span className="px-1.5 py-0.5 bg-canvas border border-border-subtle text-[11px] font-mono text-text-muted rounded-[2px] font-bold">
+                            {mat.package}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted/60 font-mono">-</span>
+                        )}
+                      </td>
+
+                      {/* 位号 */}
+                      <td className="py-2.5 px-3 font-mono text-xs text-text-muted">
+                        {mat.designators ? (
+                          <span className="text-accent font-bold" title={mat.designators}>
+                            {mat.designators}
+                          </span>
+                        ) : (
+                          <span className="text-text-muted/60">-</span>
+                        )}
+                      </td>
+
+                      {/* 需用与存量 */}
+                      <td className="py-2.5 px-3 font-mono text-xs">
+                        <span className="font-black text-text-main">
+                          {mat.demandQty} 件
+                        </span>
+                        <span className="text-text-muted text-[11px] ml-1.5">
+                          (存 {mat.stockQty ?? 0})
+                        </span>
+                      </td>
+
+                      {/* 物理货位 */}
+                      <td className="py-2.5 px-3">
+                        {hasLocation ? (
+                          <span className="px-2 py-0.5 rounded-[2px] font-mono text-xs font-black bg-accent/10 text-accent border border-accent/30 inline-flex items-center gap-1">
+                            <Box className="w-3 h-3" />
+                            <span>{mat.location}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-mono text-text-muted/60 px-1.5 py-0.5 border border-dashed border-border-subtle rounded-[2px]">
+                            未入柜
+                          </span>
+                        )}
+                      </td>
+
+                      {/* 状态徽标 */}
+                      <td className="py-2.5 px-3 font-mono text-xs font-bold">
+                        {mat.isPicked ? (
+                          <span className="text-emerald-600">✔ 已取件</span>
+                        ) : isShortage ? (
+                          <span className="text-amber-600 dark:text-amber-400">缺料</span>
+                        ) : (
+                          <span className="text-emerald-600">充足</span>
+                        )}
+                      </td>
+
+                      {/* 操作 */}
+                      {!isFastBomMode && (
+                        <td className="py-2.5 px-3 text-right">
+                          <button
+                            onClick={(e) => handleRemoveItem(mat.id as number, e)}
+                            className="p-1 text-text-muted hover:text-danger rounded"
+                            title="删除此物料"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
-        >
-          <KittingBoxSandbox
-            materials={currentMaterials}
-            focusedMaterialId={focusedItemId}
-            onSelectMaterial={(id) => setFocusedItemId(id)}
-            onTogglePicked={(id, nextPicked) => handleTogglePick(id, nextPicked)}
-            shortages={shortages}
-            onNavigateToBoxManagement={(boxName) => onNavigateToBoxes?.(boxName)}
-          />
         </div>
       </div>
+
+      {/* 3. 全屏沉浸式现场拿料大沙盘模态框 */}
+      <ImmersiveKittingModal
+        isOpen={isKittingSandboxOpen}
+        onClose={() => setIsKittingSandboxOpen(false)}
+        projectName={currentProjectName}
+        targetQty={currentTargetQty}
+        materials={currentMaterials}
+        checkedPicks={checkedPicks}
+        onTogglePick={handleTogglePick}
+      />
 
       {/* 极速 BOM 转存正式工程弹窗 */}
       <Modal
