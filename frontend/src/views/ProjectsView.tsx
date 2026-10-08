@@ -1,10 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { projectApi } from '../api/projectApi';
 import { ProjectItem } from '../types/project';
 import { useToastStore } from '../store/useToastStore';
-import { ProjectDetailModal } from '../components/ProjectDetailModal';
-import { AddProjectItemModal } from '../components/AddProjectItemModal';
-import { Hammer, Plus, Lock, FolderGit2, Layers, Calendar, ChevronRight } from 'lucide-react';
+import { ProjectWorkspace } from '../components/projects/ProjectWorkspace';
+import {
+  Hammer,
+  Plus,
+  Lock,
+  FolderGit2,
+  Layers,
+  Calendar,
+  ChevronRight,
+  Search,
+  Trash2,
+  CheckCircle2,
+} from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { cn } from '../lib/utils';
 
@@ -13,22 +23,37 @@ export const ProjectsView: React.FC = () => {
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // 搜索与状态过滤
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PREPARING' | 'READY' | 'COMPLETED'>('ALL');
+
+  // 当前主工作台选中的项目
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+
+  // 移动端视图模式：'LIST' 列表模式 或 'WORKSPACE' 工作台模式
+  const [mobileViewMode, setMobileViewMode] = useState<'LIST' | 'WORKSPACE'>('LIST');
+
   // 新建项目弹窗
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [targetQty, setTargetQty] = useState<number>(1);
 
-  // 选中的项目详情弹窗与直接加料弹窗
-  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
-  const [addMaterialProject, setAddMaterialProject] = useState<ProjectItem | null>(null);
-
-  const fetchProjects = async () => {
+  const fetchProjects = async (maintainSelectedId?: number) => {
     setLoading(true);
     try {
       const res = await projectApi.getAll();
       if (res.success && res.data) {
         setProjects(res.data);
+        if (res.data.length > 0) {
+          const targetId = maintainSelectedId || selectedProjectId;
+          const found = res.data.find((p) => p.id === targetId);
+          if (found) {
+            setSelectedProjectId(found.id);
+          } else if (!targetId) {
+            setSelectedProjectId(res.data[0].id);
+          }
+        }
       }
     } catch (err: any) {
       showToast('获取项目列表失败: ' + err.message, 'error');
@@ -58,226 +83,366 @@ export const ProjectsView: React.FC = () => {
       setProjectDesc('');
       setTargetQty(1);
       setCreateModalOpen(false);
-      fetchProjects();
-      // 创建成功后自动打开该项目的物料添加弹窗
-      if (createdProj && createdProj.id) {
-        setAddMaterialProject(createdProj);
+      await fetchProjects(createdProj?.id);
+      if (createdProj?.id) {
+        setSelectedProjectId(createdProj.id);
+        setMobileViewMode('WORKSPACE');
       }
     } catch (err: any) {
       showToast('创建项目失败: ' + err.message, 'error');
     }
   };
 
+  const handleDeleteProject = async (id: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('确定要删除该制作项目吗？已锁定的库存将被自动释放。')) {
+      return;
+    }
+    try {
+      await projectApi.delete(id);
+      showToast('已删除项目', 'success');
+      fetchProjects();
+    } catch (err: any) {
+      showToast('删除失败: ' + err.message, 'error');
+    }
+  };
+
+  // 过滤后的项目列表
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      // 状态过滤
+      if (statusFilter === 'COMPLETED' && p.status !== 'COMPLETED') return false;
+      if (statusFilter === 'READY' && (p.readinessPercent || 0) < 100) return false;
+      if (statusFilter === 'PREPARING' && (p.status === 'COMPLETED' || (p.readinessPercent || 0) >= 100)) return false;
+
+      // 文本搜索
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const matchName = p.name.toLowerCase().includes(q);
+        const matchDesc = p.description?.toLowerCase().includes(q);
+        if (!matchName && !matchDesc) return false;
+      }
+      return true;
+    });
+  }, [projects, statusFilter, searchQuery]);
+
+  // 宏观统计指标
+  const metrics = useMemo(() => {
+    let totalLockedPieces = 0;
+    let readyCount = 0;
+    let preparingCount = 0;
+    let completedCount = 0;
+
+    for (const p of projects) {
+      totalLockedPieces += (p.totalPiecesLocked || p.lockedCount || 0);
+      if (p.status === 'COMPLETED') completedCount++;
+      else if ((p.readinessPercent || 0) >= 100) readyCount++;
+      else preparingCount++;
+    }
+
+    return {
+      total: projects.length,
+      totalLockedPieces,
+      readyCount,
+      preparingCount,
+      completedCount,
+    };
+  }, [projects]);
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 space-y-5">
-      {/* 顶部标题区与新建按钮 */}
-      <div className="flex items-center justify-between gap-4 flex-wrap pb-2 border-b border-border-subtle">
-        <div>
-          <h1 className="text-lg font-bold text-text-main flex items-center gap-2">
-            <Hammer className="w-5 h-5 text-accent" />
-            <span>制作项目与套料包管理</span>
-          </h1>
-          <p className="text-xs text-text-muted mt-0.5">
-            为正在打板、焊接的项目预排专属元器件套料包与预锁库，防止现货备料被日常消耗挪用。
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setCreateModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-semibold shadow-sm transition-all"
+    <div className="max-w-[1720px] mx-auto px-2 sm:px-4 py-3 h-[calc(100vh-4.5rem)] flex flex-col min-h-0">
+      {/* 现代工坊 Master-Detail 分栏工作台容器 */}
+      <div className="flex-1 flex gap-3 min-h-0 overflow-hidden">
+        {/* 左侧边栏 (Master Panel)：制作项目导航器 */}
+        <aside
+          className={`w-full md:w-84 lg:w-90 xl:w-96 flex flex-col min-h-0 bg-surface border border-border-subtle rounded-md overflow-hidden shrink-0 transition-all ${
+            mobileViewMode === 'WORKSPACE' ? 'hidden md:flex' : 'flex'
+          }`}
         >
-          <Plus className="w-3.5 h-3.5" />
-          <span>新建制作项目</span>
-        </button>
-      </div>
-
-      {/* 项目列表网格 */}
-      {loading ? (
-        <div className="py-24 text-center text-xs text-text-dim">正在加载制作项目...</div>
-      ) : projects.length === 0 ? (
-        <div className="py-20 text-center text-xs text-text-dim bg-surface border border-dashed border-border-subtle rounded-2xl space-y-3">
-          <div>暂无正在进行的制作项目。点击右上角新建项目，或在「BOM 比对」页面一键转存！</div>
-          <button
-            type="button"
-            onClick={() => setCreateModalOpen(true)}
-            className="px-4 py-2 bg-accent text-white rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>现在新建首个项目</span>
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((proj) => {
-            const readiness = proj.readinessPercent || 0;
-            const isCompleted = proj.status === 'COMPLETED';
-
-            return (
-              <div
-                key={proj.id}
-                onClick={() => setActiveProjectId(proj.id)}
-                className="bg-surface border border-border-subtle hover:border-accent hover:shadow-md rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between group space-y-4"
-              >
-                <div>
-                  {/* 项目名称与状态徽标 */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-bold text-sm text-text-main group-hover:text-accent transition-colors flex items-center gap-2">
-                      <FolderGit2 className="w-4 h-4 text-accent" />
-                      <span className="truncate">{proj.name}</span>
-                    </div>
-
-                    {isCompleted ? (
-                      <span className="text-[10px] text-emerald-700 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold shrink-0">
-                        已完工消库
-                      </span>
-                    ) : readiness >= 100 ? (
-                      <span className="text-[10px] text-emerald-700 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold shrink-0">
-                        齐套待焊
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-amber-700 bg-amber-500/15 px-2 py-0.5 rounded-full border border-amber-500/30 font-bold shrink-0">
-                        备料中
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-text-muted line-clamp-2 mb-3">
-                    {proj.description || '暂无项目说明'}
-                  </p>
-
-                  {/* 齐套率进度条 */}
-                  <div className="space-y-1.5 pt-1">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-text-dim flex items-center gap-1">
-                        <Layers className="w-3 h-3 text-accent" />
-                        <span>齐套率: {proj.ready_items_count || 0} / {proj.total_items_count || 0} 项</span>
-                      </span>
-                      <span className={cn('font-mono font-bold', readiness >= 100 ? 'text-emerald-600' : 'text-accent')}>
-                        {readiness}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-subtle rounded-full h-2 overflow-hidden">
-                      <div
-                        className={cn('h-full rounded-full transition-all', readiness >= 100 ? 'bg-emerald-500' : 'bg-accent')}
-                        style={{ width: `${Math.min(100, readiness)}%` }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 卡片底栏：套数、已锁数量与醒目的快捷操作按钮 */}
-                <div className="pt-3 border-t border-border-subtle flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 text-xs text-text-dim">
-                    <span className="font-mono text-text-main font-bold">x{proj.target_qty || 1} 套</span>
-                    <span>·</span>
-                    <span className="text-amber-600 font-mono flex items-center gap-0.5" title="已锁库现货件数">
-                      <Lock className="w-3 h-3" />
-                      <span>{proj.totalPiecesLocked || proj.lockedCount || 0} 件</span>
-                    </span>
-                  </div>
-
-                  {/* 显式的快捷操作按钮 */}
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAddMaterialProject(proj);
-                      }}
-                      className="px-2.5 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm transition-all"
-                      title="往该项目添加元器件物料"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>添加物料</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveProjectId(proj.id);
-                      }}
-                      className="px-2.5 py-1 bg-subtle hover:bg-surface-hover border border-border-subtle text-text-main rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
-                      title="打开项目完整套料清单"
-                    >
-                      <span>查看套料</span>
-                      <ChevronRight className="w-3 h-3 text-text-dim" />
-                    </button>
-                  </div>
-                </div>
+          {/* 左侧顶部：标题、计数器、新建按键 */}
+          <div className="p-3.5 border-b border-border-subtle bg-canvas/40 space-y-3 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Hammer className="w-5 h-5 text-accent" />
+                <h1 className="font-bold text-base text-text-main tracking-tight">制作项目与套料</h1>
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[2px] bg-subtle text-text-muted border border-border-subtle">
+                  {projects.length}
+                </span>
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-2xs transition-colors flex items-center gap-1"
+                title="新建硬件制作项目"
+              >
+                <Plus className="w-4 h-4" />
+                <span>新建</span>
+              </button>
+            </div>
+
+            {/* 紧凑搜索栏 */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="过滤项目名称或说明..."
+                className="w-full pl-8 pr-7 py-1.5 text-xs sm:text-sm font-mono bg-canvas border border-border-subtle rounded-[2px] text-text-main placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* 状态过滤胶囊 */}
+            <div className="grid grid-cols-4 gap-1.5 text-xs font-mono">
+              <button
+                onClick={() => setStatusFilter('ALL')}
+                className={`py-1.5 text-center rounded-[2px] transition-colors ${
+                  statusFilter === 'ALL'
+                    ? 'bg-accent/10 text-accent font-bold border border-accent/30'
+                    : 'bg-canvas text-text-muted hover:text-text-main border border-border-subtle'
+                }`}
+              >
+                全部({projects.length})
+              </button>
+              <button
+                onClick={() => setStatusFilter('PREPARING')}
+                className={`py-1.5 text-center rounded-[2px] transition-colors ${
+                  statusFilter === 'PREPARING'
+                    ? 'bg-accent/10 text-accent font-bold border border-accent/30'
+                    : 'bg-canvas text-text-muted hover:text-text-main border border-border-subtle'
+                }`}
+                title="备料中"
+              >
+                备料中
+              </button>
+              <button
+                onClick={() => setStatusFilter('READY')}
+                className={`py-1.5 text-center rounded-[2px] transition-colors ${
+                  statusFilter === 'READY'
+                    ? 'bg-accent/10 text-accent font-bold border border-accent/30'
+                    : 'bg-canvas text-text-muted hover:text-text-main border border-border-subtle'
+                }`}
+                title="齐套待焊"
+              >
+                齐套待焊
+              </button>
+              <button
+                onClick={() => setStatusFilter('COMPLETED')}
+                className={`py-1.5 text-center rounded-[2px] transition-colors ${
+                  statusFilter === 'COMPLETED'
+                    ? 'bg-accent/10 text-accent font-bold border border-accent/30'
+                    : 'bg-canvas text-text-muted hover:text-text-main border border-border-subtle'
+                }`}
+                title="已完工消库"
+              >
+                已完工
+              </button>
+            </div>
+          </div>
+
+          {/* 左侧主体：项目列表 */}
+          <div className="flex-1 overflow-y-auto p-2.5 space-y-2 divide-y divide-border-subtle/50">
+            {loading && projects.length === 0 ? (
+              <div className="py-12 text-center text-xs text-text-muted flex flex-col items-center gap-2">
+                <Hammer className="w-6 h-6 text-accent animate-pulse" />
+                <span>加载制作项目中...</span>
+              </div>
+            ) : filteredProjects.length === 0 ? (
+              <div className="py-8 text-center text-xs text-text-muted">未找到匹配制作项目</div>
+            ) : (
+              filteredProjects.map((p) => {
+                const isSelected = selectedProjectId === p.id;
+                const readiness = p.readinessPercent || 0;
+                const isCompleted = p.status === 'COMPLETED';
+
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => {
+                      setSelectedProjectId(p.id);
+                      setMobileViewMode('WORKSPACE');
+                    }}
+                    className="pt-2 first:pt-0 cursor-pointer select-none group"
+                  >
+                    <div
+                      className={`p-3 rounded-[3px] border transition-all flex flex-col justify-between relative ${
+                        isSelected
+                          ? 'border-accent bg-accent/[0.08] shadow-2xs'
+                          : 'border-border-subtle bg-surface hover:border-border-hover hover:bg-surface-hover'
+                      }`}
+                    >
+                      {/* 左侧状态色条 */}
+                      <span
+                        className={cn(
+                          'absolute left-0 top-1.5 bottom-1.5 w-[4px] rounded-r-[1px] transition-all',
+                          isCompleted
+                            ? 'bg-emerald-600'
+                            : readiness >= 100
+                            ? 'bg-emerald-500'
+                            : 'bg-amber-500'
+                        )}
+                      />
+
+                      {/* 标题与状态 */}
+                      <div className="pl-2">
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <FolderGit2 className="w-4 h-4 text-accent shrink-0" />
+                              <h3
+                                className={`text-sm sm:text-base font-bold truncate leading-snug ${
+                                  isSelected ? 'text-accent' : 'text-text-main'
+                                }`}
+                                title={p.name}
+                              >
+                                {p.name}
+                              </h3>
+                            </div>
+
+                            <p className="text-xs text-text-muted mt-1 line-clamp-1">
+                              {p.description || '暂无项目说明'}
+                            </p>
+                          </div>
+
+                          {/* 快捷删除 */}
+                          <button
+                            onClick={(e) => handleDeleteProject(p.id, e)}
+                            className="p-1 text-text-muted hover:text-danger rounded opacity-30 group-hover:opacity-100 transition-opacity shrink-0"
+                            title="删除项目"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* 齐套率进度条 */}
+                        <div className="mt-2.5 space-y-1">
+                          <div className="flex items-center justify-between text-xs font-mono">
+                            <span className="text-text-muted">
+                              齐套率: {p.ready_items_count || 0}/{p.total_items_count || 0} 项
+                            </span>
+                            <span className={cn('font-bold', readiness >= 100 ? 'text-emerald-600' : 'text-accent')}>
+                              {readiness}%
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-canvas rounded-full overflow-hidden border border-border-subtle">
+                            <div
+                              className={cn(
+                                'h-full rounded-full transition-all duration-300',
+                                readiness >= 100 ? 'bg-emerald-500' : 'bg-accent'
+                              )}
+                              style={{ width: `${Math.min(100, readiness)}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* 底部数量微标 */}
+                        <div className="mt-2.5 pt-1.5 border-t border-border-subtle/50 flex items-center justify-between text-xs text-text-muted font-mono">
+                          <span className="font-bold text-text-main">x{p.target_qty || 1} 套 (板)</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                              <Lock className="w-3 h-3" />
+                              <span>已锁 {p.totalPiecesLocked || p.lockedCount || 0} 件</span>
+                            </span>
+                            <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* 左侧底部：工坊微看板 */}
+          <div className="p-3 border-t border-border-subtle bg-canvas/40 shrink-0 font-mono text-xs text-text-muted">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div>
+                <span className="block text-text-muted text-[11px] mb-0.5">项目总数</span>
+                <strong className="text-sm font-black text-text-main">{metrics.total}</strong>
+              </div>
+              <div>
+                <span className="block text-text-muted text-[11px] mb-0.5">齐套待焊</span>
+                <strong className="text-sm font-black text-emerald-600">{metrics.readyCount}</strong>
+              </div>
+              <div>
+                <span className="block text-text-muted text-[11px] mb-0.5">预锁现货</span>
+                <strong className="text-sm font-black text-amber-600">{metrics.totalLockedPieces}件</strong>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* 右侧主舞台 (Detail Workspace)：常驻套料锁库与拣料工作台 */}
+        <main
+          className={`flex-1 flex flex-col min-h-0 ${
+            mobileViewMode === 'LIST' ? 'hidden md:flex' : 'flex'
+          }`}
+        >
+          <ProjectWorkspace
+            projectId={selectedProjectId}
+            onProjectUpdated={() => fetchProjects(selectedProjectId || undefined)}
+            onDeleteProject={(id) => handleDeleteProject(id)}
+            onBackToList={() => setMobileViewMode('LIST')}
+          />
+        </main>
+      </div>
 
       {/* 新建项目模态框 */}
       <Modal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} title="新建制作项目" maxWidth="max-w-md">
-        <div className="space-y-4 text-xs">
+        <div className="space-y-4 text-xs sm:text-sm">
           <div>
-            <label className="block text-text-dim mb-1 font-medium">项目名称 *</label>
+            <label className="block text-text-muted mb-1 font-semibold">项目名称 *</label>
             <input
               type="text"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
               placeholder="例如: ESP32-S3 智能墨水屏时钟 v1.0"
-              className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-accent"
+              className="w-full bg-canvas border border-border-subtle rounded-[2px] px-3 py-2 text-xs sm:text-sm text-text-main focus:outline-none focus:border-accent"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-text-dim mb-1 font-medium">制作目标套数 (板)</label>
+            <label className="block text-text-muted mb-1 font-semibold">制作目标套数 (板)</label>
             <input
               type="number"
               min={1}
               value={targetQty}
               onChange={(e) => setTargetQty(parseInt(e.target.value, 10) || 1)}
               placeholder="打样/制作套数 (默认 1)"
-              className="w-full bg-surface border border-border-subtle rounded-xl px-3 py-2 text-xs font-mono font-bold focus:outline-none focus:border-accent"
+              className="w-full bg-canvas border border-border-subtle rounded-[2px] px-3 py-2 text-xs sm:text-sm font-mono font-bold text-text-main focus:outline-none focus:border-accent"
             />
           </div>
 
           <div>
-            <label className="block text-text-dim mb-1 font-medium">项目说明 / 目标</label>
+            <label className="block text-text-muted mb-1 font-semibold">项目说明 / 目标</label>
             <textarea
               rows={3}
               value={projectDesc}
               onChange={(e) => setProjectDesc(e.target.value)}
-              placeholder="记录 PCB 版本、嘉立创打板批次或关键技术参数..."
-              className="w-full bg-surface border border-border-subtle rounded-xl p-3 text-xs focus:outline-none focus:border-accent resize-none"
+              placeholder="记录 PCB 版本、打板批次或关键技术参数..."
+              className="w-full bg-canvas border border-border-subtle rounded-[2px] p-3 text-xs sm:text-sm text-text-main focus:outline-none focus:border-accent resize-none"
             />
           </div>
 
           <button
             type="button"
             onClick={handleCreate}
-            className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-xs rounded-xl shadow-sm transition-all"
+            className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-bold text-xs sm:text-sm rounded-[2px] shadow-xs transition-colors"
           >
-            确认创建并开始加料
+            确认创建并进入工作台
           </button>
         </div>
       </Modal>
-
-      {/* 从卡片直接打开的添加物料弹窗 */}
-      {addMaterialProject && (
-        <AddProjectItemModal
-          isOpen={!!addMaterialProject}
-          onClose={() => setAddMaterialProject(null)}
-          projectId={addMaterialProject.id}
-          projectTargetQty={addMaterialProject.target_qty || 1}
-          onSuccess={fetchProjects}
-        />
-      )}
-
-      {/* 项目详情与完整套料看板弹窗 */}
-      <ProjectDetailModal
-        isOpen={!!activeProjectId}
-        onClose={() => setActiveProjectId(null)}
-        projectId={activeProjectId}
-        onProjectUpdated={fetchProjects}
-      />
     </div>
   );
 };
