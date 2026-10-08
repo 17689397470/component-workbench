@@ -3,7 +3,8 @@ import { projectApi } from '../api/projectApi';
 import { ProjectItem } from '../types/project';
 import { useToastStore } from '../store/useToastStore';
 import { ProjectDetailModal } from '../components/ProjectDetailModal';
-import { Hammer, Plus, Lock, FolderGit2, CheckCircle2, AlertTriangle, Layers, Calendar } from 'lucide-react';
+import { AddProjectItemModal } from '../components/AddProjectItemModal';
+import { Hammer, Plus, Lock, FolderGit2, Layers, Calendar, ChevronRight } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { cn } from '../lib/utils';
 
@@ -18,8 +19,9 @@ export const ProjectsView: React.FC = () => {
   const [projectDesc, setProjectDesc] = useState('');
   const [targetQty, setTargetQty] = useState<number>(1);
 
-  // 选中的项目详情弹窗
+  // 选中的项目详情弹窗与直接加料弹窗
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const [addMaterialProject, setAddMaterialProject] = useState<ProjectItem | null>(null);
 
   const fetchProjects = async () => {
     setLoading(true);
@@ -45,17 +47,22 @@ export const ProjectsView: React.FC = () => {
       return;
     }
     try {
-      await projectApi.create({
+      const res = await projectApi.create({
         name: projectName.trim(),
         description: projectDesc.trim(),
         target_qty: Math.max(1, targetQty),
       });
-      showToast('✔ 成功创建项目', 'success');
+      showToast('✔ 成功创建项目！可立即添加物料。', 'success');
+      const createdProj = res.data;
       setProjectName('');
       setProjectDesc('');
       setTargetQty(1);
       setCreateModalOpen(false);
       fetchProjects();
+      // 创建成功后自动打开该项目的物料添加弹窗
+      if (createdProj && createdProj.id) {
+        setAddMaterialProject(createdProj);
+      }
     } catch (err: any) {
       showToast('创建项目失败: ' + err.message, 'error');
     }
@@ -159,22 +166,44 @@ export const ProjectsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 底栏信息：目标套数、锁库件数与创建时间 */}
-                <div className="pt-3 border-t border-dashed border-border-subtle flex items-center justify-between text-xs text-text-dim">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-text-main font-semibold">
-                      x{proj.target_qty || 1} 套
-                    </span>
+                {/* 卡片底栏：套数、已锁数量与醒目的快捷操作按钮 */}
+                <div className="pt-3 border-t border-border-subtle flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 text-xs text-text-dim">
+                    <span className="font-mono text-text-main font-bold">x{proj.target_qty || 1} 套</span>
                     <span>·</span>
-                    <span className="flex items-center gap-1 text-amber-600 font-mono">
+                    <span className="text-amber-600 font-mono flex items-center gap-0.5" title="已锁库现货件数">
                       <Lock className="w-3 h-3" />
-                      <span>已锁: {proj.totalPiecesLocked || proj.lockedCount || 0} 件</span>
+                      <span>{proj.totalPiecesLocked || proj.lockedCount || 0} 件</span>
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1 text-[11px]">
-                    <Calendar className="w-3 h-3 text-text-dim" />
-                    <span>{new Date(proj.created_at).toLocaleDateString()}</span>
+                  {/* 显式的快捷操作按钮 */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAddMaterialProject(proj);
+                      }}
+                      className="px-2.5 py-1 bg-accent hover:bg-accent-hover text-white rounded-lg text-xs font-semibold flex items-center gap-1 shadow-sm transition-all"
+                      title="往该项目添加元器件物料"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>添加物料</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveProjectId(proj.id);
+                      }}
+                      className="px-2.5 py-1 bg-subtle hover:bg-surface-hover border border-border-subtle text-text-main rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
+                      title="打开项目完整套料清单"
+                    >
+                      <span>查看套料</span>
+                      <ChevronRight className="w-3 h-3 text-text-dim" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -226,10 +255,21 @@ export const ProjectsView: React.FC = () => {
             onClick={handleCreate}
             className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-semibold text-xs rounded-xl shadow-sm transition-all"
           >
-            确认创建
+            确认创建并开始加料
           </button>
         </div>
       </Modal>
+
+      {/* 从卡片直接打开的添加物料弹窗 */}
+      {addMaterialProject && (
+        <AddProjectItemModal
+          isOpen={!!addMaterialProject}
+          onClose={() => setAddMaterialProject(null)}
+          projectId={addMaterialProject.id}
+          projectTargetQty={addMaterialProject.target_qty || 1}
+          onSuccess={fetchProjects}
+        />
+      )}
 
       {/* 项目详情与完整套料看板弹窗 */}
       <ProjectDetailModal
