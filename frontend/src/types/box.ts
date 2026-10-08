@@ -1,9 +1,15 @@
 export interface StorageBox {
   name: string;
+  box_name?: string;
   totalTypes: number;
+  item_count?: number;
   totalPieces: number;
-  lowStockTypes: number;
-  topCategories: string[];
+  total_quantity?: number;
+  lowStockTypes?: number;
+  low_stock_count?: number;
+  topCategories?: string[];
+  categories_list?: string[];
+  qr_data_url?: string;
 }
 
 export interface BoxComponentDetail {

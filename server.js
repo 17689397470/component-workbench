@@ -385,6 +385,26 @@ app.get('/api/boxes/items', async (req, res) => {
   }
 });
 
+// 兼容别名路由
+app.get('/api/storage/boxes', async (req, res) => {
+  try {
+    const boxes = await db.getBoxesSummary();
+    res.json({ success: true, count: boxes.length, data: boxes });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/storage/boxes/:name', async (req, res) => {
+  try {
+    const boxName = req.params.name || '';
+    const items = await db.getBoxItems(boxName);
+    res.json({ success: true, box_name: boxName, count: items.length, data: items });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 13. 获取低库存与告警清单
 app.get('/api/components/low-stock', async (req, res) => {
   try {
