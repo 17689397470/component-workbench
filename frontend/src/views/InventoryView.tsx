@@ -62,24 +62,24 @@ export const InventoryView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
-      {/* 顶部工坊大盘 */}
+    <div className="max-w-[1720px] mx-auto px-2 sm:px-4 py-3">
+      {/* 顶部工坊紧凑大盘 */}
       <WorkshopDashboard />
 
-      {/* Spotlight 聚光灯搜索与工具栏 */}
-      <div className="mb-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        {/* 搜索框 */}
+      {/* 工规检索与工具栏 */}
+      <div className="mb-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        {/* 紧凑搜索框 */}
         <div className="relative flex-1 max-w-lg">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim pointer-events-none" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted stroke-[2.2] pointer-events-none" />
           <input
             ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="搜索型号、阻值、封装、盒位... (按 / 快速聚焦)"
-            className="w-full bg-surface border border-border-subtle rounded-xl pl-9 pr-12 py-2 text-xs text-text-main shadow-sm focus:outline-none focus:border-accent"
+            className="w-full bg-surface border border-border-subtle rounded-[2px] pl-9 pr-12 py-1.5 text-xs text-text-main font-mono placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
           />
-          <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:inline-block text-[10px] font-mono font-medium text-text-dim bg-subtle px-1.5 py-0.5 rounded border border-border-subtle pointer-events-none">
+          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-block text-[10px] font-mono font-bold text-text-muted bg-subtle px-1.5 py-0.2 rounded-[2px] border border-border-subtle pointer-events-none">
             /
           </kbd>
         </div>
@@ -88,12 +88,12 @@ export const InventoryView: React.FC = () => {
         <div className="flex items-center gap-2 flex-wrap">
           {/* 按盒位筛选标签 (如果处于按盒筛选中) */}
           {locationFilter && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-accent/10 text-accent border border-accent/25 rounded-full text-xs font-medium">
+            <div className="flex items-center gap-1.5 px-2 py-1 bg-accent/10 text-accent border border-accent/30 rounded-[2px] text-xs font-mono font-bold">
               <span>盒位: {locationFilter}</span>
               <button
                 type="button"
                 onClick={() => setLocationFilter('')}
-                className="hover:opacity-75 font-bold"
+                className="hover:opacity-75 font-bold ml-0.5"
               >
                 ✕
               </button>
@@ -105,9 +105,9 @@ export const InventoryView: React.FC = () => {
             <button
               type="button"
               onClick={handleSeedPresets}
-              className="text-xs text-text-muted hover:text-text-main border border-dashed border-border-subtle hover:border-border-hover px-3 py-1.5 rounded-full flex items-center gap-1.5 transition-colors"
+              className="text-xs font-bold text-text-muted hover:text-text-main border border-border-subtle hover:border-border-hover bg-surface px-2.5 py-1.5 rounded-[2px] flex items-center gap-1.5 transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5 text-accent" />
+              <Sparkles className="w-3.5 h-3.5 text-accent stroke-[2.2]" />
               <span>载入常用预设</span>
             </button>
           )}
@@ -117,25 +117,25 @@ export const InventoryView: React.FC = () => {
             <button
               type="button"
               onClick={toggleGridDensity}
-              className="md:hidden text-xs text-text-muted bg-surface border border-border-subtle px-2.5 py-1.5 rounded-full flex items-center gap-1 shadow-sm active:scale-95"
+              className="md:hidden text-xs text-text-muted bg-surface border border-border-subtle px-2 py-1 rounded-[2px] flex items-center gap-1"
             >
               <span>{gridDensity === 'double' ? '▦ 双列' : '🔲 单列'}</span>
             </button>
           )}
 
-          {/* 视图分段切换器 (📋 表格 vs 🗂️ 图文大卡) */}
-          <div className="flex items-center bg-subtle p-0.5 rounded-full border border-border-subtle">
+          {/* 视图分段切换器 (📋 表格 vs 🗂️ 图文大卡 - 工规分段按钮) */}
+          <div className="flex items-center bg-subtle/70 p-0.5 rounded-[2px] border border-border-subtle">
             <button
               type="button"
               onClick={() => setViewMode('table')}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-all duration-150',
+                'flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-bold rounded-[2px] transition-all',
                 viewMode === 'table'
-                  ? 'bg-surface text-text-main font-semibold shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-surface text-accent shadow-2xs border border-border-subtle'
+                  : 'text-text-muted hover:text-text-main border border-transparent'
               )}
             >
-              <TableIcon className="w-3.5 h-3.5" />
+              <TableIcon className="w-3.5 h-3.5 stroke-[2.2]" />
               <span>表格</span>
             </button>
 
@@ -143,20 +143,20 @@ export const InventoryView: React.FC = () => {
               type="button"
               onClick={() => setViewMode('grid')}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-all duration-150',
+                'flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-bold rounded-[2px] transition-all',
                 viewMode === 'grid'
-                  ? 'bg-surface text-text-main font-semibold shadow-sm'
-                  : 'text-text-muted hover:text-text-main'
+                  ? 'bg-surface text-accent shadow-2xs border border-border-subtle'
+                  : 'text-text-muted hover:text-text-main border border-transparent'
               )}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>图文大卡</span>
+              <LayoutGrid className="w-3.5 h-3.5 stroke-[2.2]" />
+              <span>卡片</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 分类胶囊滑轨 */}
+      {/* 分类紧凑导轨 */}
       <CategoryRail />
 
       {/* 视图内容展示 */}

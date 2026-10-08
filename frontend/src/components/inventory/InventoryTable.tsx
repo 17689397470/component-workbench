@@ -20,17 +20,17 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) =>
   }
 
   return (
-    <div className="bg-surface border border-border-subtle rounded-2xl overflow-hidden shadow-sm">
+    <div className="bg-surface border border-border-subtle rounded-[3px] overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead>
-            <tr className="bg-canvas border-b border-border-subtle text-text-muted font-semibold select-none">
-              <th className="py-3 px-4 w-[28%]">型号 / 品名</th>
-              <th className="py-3 px-3 w-[12%]">分类</th>
-              <th className="py-3 px-3 w-[12%]">封装</th>
-              <th className="py-3 px-3 w-[18%]">规格参数</th>
-              <th className="py-3 px-3 w-[16%]">存放盒位</th>
-              <th className="py-3 px-4 w-[14%] text-right">现有库存</th>
+            <tr className="bg-canvas border-b border-border-subtle text-text-muted font-mono font-bold select-none text-[11px]">
+              <th className="py-2.5 px-3.5 w-[28%]">型号 / 品名</th>
+              <th className="py-2.5 px-3 w-[12%]">分类</th>
+              <th className="py-2.5 px-3 w-[12%]">封装</th>
+              <th className="py-2.5 px-3 w-[18%]">规格参数</th>
+              <th className="py-2.5 px-3 w-[16%]">存放盒位</th>
+              <th className="py-2.5 px-3.5 w-[14%] text-right">现有库存</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
@@ -44,20 +44,20 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) =>
                 <tr
                   key={item.id}
                   onClick={() => setSelectedComponentId(item.id)}
-                  className="hover:bg-surface-hover/80 cursor-pointer transition-colors group"
+                  className="hover:bg-subtle/80 cursor-pointer transition-colors group select-none"
                 >
                   {/* 品名 */}
-                  <td className="py-3 px-4">
+                  <td className="py-2 px-3.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-base flex-shrink-0">{icon}</span>
+                      <span className="text-sm shrink-0">{icon}</span>
                       <div className="min-w-0">
-                        <div className="font-semibold text-text-main truncate group-hover:text-accent transition-colors">
+                        <div className="font-bold text-text-main truncate group-hover:text-accent transition-colors">
                           {item.name}
                         </div>
                         {cNum && (
-                          <div className="text-[11px] font-mono text-text-dim flex items-center gap-1 mt-0.5">
-                            <span>{cNum}</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
+                          <div className="text-[10px] font-mono font-bold text-text-muted/80 flex items-center gap-1 mt-0.5">
+                            <span className="px-1 py-0.2 bg-canvas border border-border-subtle rounded-[2px]">{cNum}</span>
+                            <ExternalLink className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
                         )}
                       </div>
@@ -65,30 +65,30 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) =>
                   </td>
 
                   {/* 分类 */}
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 bg-subtle border border-border-subtle rounded-md text-[11px] font-medium text-text-muted">
+                  <td className="py-2 px-3">
+                    <span className="text-[11px] font-medium text-text-muted">
                       {item.category || '-'}
                     </span>
                   </td>
 
                   {/* 封装 */}
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 bg-subtle border border-border-subtle rounded-md text-[11px] font-mono font-semibold text-text-main">
+                  <td className="py-2 px-3">
+                    <span className="px-1.5 py-0.5 bg-canvas border border-border-subtle rounded-[2px] text-[11px] font-mono font-bold text-text-main">
                       {item.package || '-'}
                     </span>
                   </td>
 
                   {/* 规格 */}
-                  <td className="py-3 px-3 text-text-muted font-mono">{spec}</td>
+                  <td className="py-2 px-3 text-text-muted font-mono font-medium">{spec}</td>
 
                   {/* 盒位 */}
-                  <td className="py-3 px-3">
+                  <td className="py-2 px-3">
                     <span
                       onClick={(e) => {
                         e.stopPropagation();
                         setLocationFilter(item.location || '');
                       }}
-                      className="px-2 py-0.5 bg-subtle hover:bg-accent/10 hover:text-accent hover:border-accent/30 border border-border-subtle rounded-md text-[11px] text-text-muted transition-colors"
+                      className="px-1.5 py-0.5 bg-canvas hover:bg-accent/10 hover:text-accent hover:border-accent/40 border border-border-subtle rounded-[2px] text-[11px] font-mono text-text-muted font-bold transition-colors"
                       title="点击按该盒位筛选"
                     >
                       📦 {item.location || '随手存放处'}
@@ -96,19 +96,19 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) =>
                   </td>
 
                   {/* 就地步进器与数量 */}
-                  <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="inline-flex items-center gap-1.5 bg-subtle/80 border border-border-subtle rounded-lg p-0.5">
+                  <td className="py-2 px-3.5 text-right" onClick={(e) => e.stopPropagation()}>
+                    <div className="inline-flex items-center gap-1 bg-canvas border border-border-subtle rounded-[2px] p-0.5">
                       <button
                         type="button"
                         onClick={() => adjustQuantity(item.id, -10)}
                         title="减少 10 件"
-                        className="w-5 h-5 rounded flex items-center justify-center text-text-muted hover:text-text-main hover:bg-surface active:scale-95 shadow-none transition-all"
+                        className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-muted hover:text-text-main hover:bg-subtle active:scale-95 transition-all"
                       >
-                        <Minus className="w-3 h-3" />
+                        <Minus className="w-2.5 h-2.5" />
                       </button>
                       <span
                         className={cn(
-                          'w-10 text-center font-mono font-bold text-xs tabular-nums',
+                          'w-9 text-center font-mono font-black text-xs tabular-nums',
                           isLow ? 'text-amber-600' : 'text-text-main'
                         )}
                       >
@@ -118,9 +118,9 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) =>
                         type="button"
                         onClick={() => adjustQuantity(item.id, 10)}
                         title="增加 10 件"
-                        className="w-5 h-5 rounded flex items-center justify-center text-text-muted hover:text-text-main hover:bg-surface active:scale-95 shadow-none transition-all"
+                        className="w-4 h-4 rounded-[2px] flex items-center justify-center text-text-muted hover:text-text-main hover:bg-subtle active:scale-95 transition-all"
                       >
-                        <Plus className="w-3 h-3" />
+                        <Plus className="w-2.5 h-2.5" />
                       </button>
                     </div>
                   </td>

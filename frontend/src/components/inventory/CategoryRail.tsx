@@ -19,7 +19,7 @@ export const CategoryRail: React.FC = () => {
   ];
 
   return (
-    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-4 no-scrollbar">
+    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-3 no-scrollbar select-none">
       {categories.map((c) => {
         const isActive = categoryFilter === c.key;
         return (
@@ -28,13 +28,13 @@ export const CategoryRail: React.FC = () => {
             type="button"
             onClick={() => setCategoryFilter(c.key)}
             className={cn(
-              'px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all duration-150 flex items-center gap-1.5',
+              'px-2.5 py-1 rounded-[2px] text-xs font-mono font-bold whitespace-nowrap transition-colors flex items-center gap-1 border',
               isActive
-                ? 'bg-text-main text-surface font-semibold shadow-sm'
-                : 'bg-surface text-text-muted hover:text-text-main hover:bg-subtle border border-border-subtle'
+                ? 'bg-accent/15 text-accent border-accent/40 shadow-2xs font-black'
+                : 'bg-surface text-text-muted hover:text-text-main hover:bg-subtle border-border-subtle'
             )}
           >
-            <span>{c.icon}</span>
+            <span className="text-[11px]">{c.icon}</span>
             <span>{c.label}</span>
           </button>
         );
