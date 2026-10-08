@@ -249,8 +249,8 @@ export const BoxesView: React.FC = () => {
             </div>
           </div>
 
-          {/* 左侧主体：收纳盒列表 (工规紧凑工程列表行，绝无 AI 生硬竖色条) */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {/* 左侧主体：收纳盒列表 (连续工规列表，无卡片碎片感，无生硬竖色条) */}
+          <div className="flex-1 overflow-y-auto divide-y divide-border-subtle">
             {loading && boxes.length === 0 ? (
               <div className="py-12 text-center text-xs text-text-muted flex flex-col items-center gap-2">
                 <Layers className="w-6 h-6 text-accent animate-pulse stroke-[2.2]" />
@@ -268,10 +268,10 @@ export const BoxesView: React.FC = () => {
                     key={b.name}
                     onClick={() => handleSelectBox(b)}
                     className={cn(
-                      'p-2.5 rounded-[3px] border transition-all cursor-pointer select-none group',
+                      'px-3.5 py-3 transition-colors cursor-pointer select-none group',
                       isSelected
-                        ? 'bg-accent/[0.09] border-accent/60 shadow-2xs'
-                        : 'bg-surface hover:bg-subtle/80 border-border-subtle hover:border-border-hover'
+                        ? 'bg-accent/[0.08]'
+                        : 'bg-surface hover:bg-subtle/70'
                     )}
                   >
                     {/* 第一行：物理颜色微标 + 容器图标 + 容器名称 + 规格徽章 */}
