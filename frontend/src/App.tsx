@@ -5,6 +5,7 @@ import { MobileFabScanner } from './components/scanner/MobileFabScanner';
 import { ImmersiveScannerModal } from './components/scanner/ImmersiveScannerModal';
 import { BackupModal } from './components/backup/BackupModal';
 import { TaobaoImportModal } from './components/inventory/TaobaoImportModal';
+import { MobileQuickAdjustModal } from './components/inventory/MobileQuickAdjustModal';
 import { Toast } from './components/ui/Toast';
 
 import { InventoryView } from './views/InventoryView';
@@ -42,6 +43,9 @@ export const App: React.FC = () => {
 
       {/* 淘宝订单批量导入模态框 */}
       <TaobaoImportModal />
+
+      {/* 手机扫码快捷盘点与领料卡片 */}
+      <MobileQuickAdjustModal />
 
       {/* 全局浮动提示 */}
       <Toast />

@@ -10,6 +10,7 @@ import { componentApi } from '../../api/componentApi';
 import { ComponentItem } from '../../types/component';
 import { useToastStore } from '../../store/useToastStore';
 import { Modal } from '../ui/Modal';
+import { StorageBoxLabelModal } from './StorageBoxLabelModal';
 import {
   Grid,
   ChevronLeft,
@@ -26,6 +27,7 @@ import {
   PackageCheck,
   Settings,
   HelpCircle,
+  Printer,
 } from 'lucide-react';
 
 interface StorageBoxGridModalProps {
@@ -61,6 +63,9 @@ export const StorageBoxGridModal: React.FC<StorageBoxGridModalProps> = ({
 
   // 选中某格查看详情面板
   const [inspectSlot, setInspectSlot] = useState<BoxGridSlot | null>(null);
+
+  // 打印标签工作台
+  const [isLabelModalOpen, setIsLabelModalOpen] = useState(false);
 
   const fetchGridData = async (page: number = currentPage) => {
     if (!boxSummary?.name) return;
@@ -280,6 +285,15 @@ export const StorageBoxGridModal: React.FC<StorageBoxGridModalProps> = ({
               title="刷新网格"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              onClick={() => setIsLabelModalOpen(true)}
+              className="px-2.5 py-1.5 text-xs bg-accent/10 hover:bg-accent hover:text-white text-accent font-semibold rounded-xl border border-accent/20 transition-all flex items-center gap-1 shadow-2xs"
+              title="生成并打印抽屉物理标签纸与二维码"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>打印标签</span>
             </button>
 
             {onConfigEdit && (
@@ -678,6 +692,14 @@ export const StorageBoxGridModal: React.FC<StorageBoxGridModalProps> = ({
           })()}
         </Modal>
       )}
+
+      {/* 物理标签与二维码打印工作台 (层级 z-85) */}
+      <StorageBoxLabelModal
+        isOpen={isLabelModalOpen}
+        onClose={() => setIsLabelModalOpen(false)}
+        boxSummary={boxConfig}
+        zIndex={85}
+      />
     </Modal>
   );
 };

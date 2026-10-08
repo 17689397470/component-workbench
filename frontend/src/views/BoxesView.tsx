@@ -5,6 +5,7 @@ import { useToastStore } from '../store/useToastStore';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { StorageBoxConfigModal } from '../components/boxes/StorageBoxConfigModal';
 import { StorageBoxGridModal } from '../components/boxes/StorageBoxGridModal';
+import { StorageBoxLabelModal } from '../components/boxes/StorageBoxLabelModal';
 import { ComponentDetailDrawer } from '../components/inventory/ComponentDetailDrawer';
 import {
   Layers,
@@ -21,6 +22,7 @@ import {
   Percent,
   CheckCircle2,
   AlertTriangle,
+  Printer,
 } from 'lucide-react';
 
 export const BoxesView: React.FC = () => {
@@ -39,6 +41,9 @@ export const BoxesView: React.FC = () => {
   // 2D 网格工作台弹窗状态
   const [gridModalOpen, setGridModalOpen] = useState(false);
   const [activeBox, setActiveBox] = useState<StorageBoxConfig | null>(null);
+
+  // 独立标签打印弹窗状态
+  const [activeLabelBox, setActiveLabelBox] = useState<StorageBoxSummary | null>(null);
 
   const fetchBoxes = async () => {
     setLoading(true);
@@ -358,13 +363,26 @@ export const BoxesView: React.FC = () => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={(e) => handleEditConfig(box, e)}
-                      className="p-1 text-text-dim hover:text-text-main hover:bg-subtle rounded-lg opacity-40 group-hover:opacity-100 transition-all shrink-0"
-                      title="编辑收纳盒规格"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveLabelBox(box);
+                        }}
+                        className="p-1 text-text-dim hover:text-accent hover:bg-subtle rounded-lg opacity-40 group-hover:opacity-100 transition-all shrink-0"
+                        title="生成并打印抽屉物理标签纸"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        onClick={(e) => handleEditConfig(box, e)}
+                        className="p-1 text-text-dim hover:text-text-main hover:bg-subtle rounded-lg opacity-40 group-hover:opacity-100 transition-all shrink-0"
+                        title="编辑收纳盒规格"
+                      >
+                        <Settings className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* 饱和度进度条 */}
@@ -464,6 +482,14 @@ export const BoxesView: React.FC = () => {
         box={editingBox}
         onSaved={handleConfigSaved}
         zIndex={80}
+      />
+
+      {/* 独立标签打印工作台 (层级 z-85) */}
+      <StorageBoxLabelModal
+        isOpen={!!activeLabelBox}
+        onClose={() => setActiveLabelBox(null)}
+        boxSummary={activeLabelBox}
+        zIndex={85}
       />
 
       {/* 元器件全生命周期档案抽屉 */}
