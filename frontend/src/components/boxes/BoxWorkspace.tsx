@@ -242,51 +242,51 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-canvas border border-border-subtle rounded-md overflow-hidden relative">
-      {/* 1. 顶部工业控制台工具栏 (大字号、高对比度) */}
-      <div className="px-4 py-3 bg-surface border-b border-border-subtle flex flex-wrap items-center justify-between gap-3 shrink-0">
+    <div className="flex-1 flex flex-col min-h-0 bg-canvas border-[1.5px] border-border-subtle rounded-md overflow-hidden relative">
+      {/* 1. 顶部工业控制台工具栏 (大字号、高对比度、硬朗线条) */}
+      <div className="px-4 py-3 bg-surface border-b-[1.5px] border-border-subtle flex flex-wrap items-center justify-between gap-3 shrink-0">
         {/* 左侧：返回按键(移动端) + 容器标识 + 规格 */}
         <div className="flex items-center gap-3 min-w-0">
           {onBackToList && (
             <button
               onClick={onBackToList}
-              className="md:hidden p-2 hover:bg-subtle rounded text-text-muted hover:text-text-main border border-border-subtle"
+              className="md:hidden p-2 hover:bg-subtle rounded text-text-muted hover:text-text-main border-[1.5px] border-border-subtle"
               title="返回收纳盒列表"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4 stroke-[2.2]" />
             </button>
           )}
 
-          {/* 物理色标 */}
+          {/* 物理色标 (加宽加厚) */}
           <span
-            className="w-3 h-8 rounded-[2px] shrink-0"
+            className="w-3.5 h-8.5 rounded-[2px] shrink-0 shadow-2xs"
             style={{ backgroundColor: boxConfig?.color || '#3B82F6' }}
           />
 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-base sm:text-lg text-text-main truncate tracking-tight">
+              <h2 className="font-black text-base sm:text-lg text-text-main truncate tracking-tight">
                 {boxConfig?.name}
               </h2>
-              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[2px] bg-subtle text-text-muted border border-border-subtle shrink-0">
+              <span className="font-mono text-xs font-black px-2 py-0.5 rounded-[2px] bg-subtle text-text-muted border border-border-subtle shrink-0">
                 {boxConfig?.box_type === 'BOOK'
                   ? `样品本 · P${currentPage}/${data?.totalPages || boxConfig.pages || 1}`
                   : `${rows}R × ${cols}C (${totalSlots}格)`}
               </span>
             </div>
 
-            {/* 容量饱和度高对比度标尺 */}
-            <div className="flex items-center gap-2.5 text-xs text-text-muted mt-1 font-mono">
+            {/* 容量饱和度高对比度标尺 (高度增至 h-2.5，厚实饱满) */}
+            <div className="flex items-center gap-2.5 text-xs text-text-muted mt-1 font-mono font-bold">
               <span>
-                已占用 <strong className="text-text-main font-bold">{occupiedSlots}</strong> / {totalSlots} 格
+                已占用 <strong className="text-text-main font-black">{occupiedSlots}</strong> / {totalSlots} 格
               </span>
-              <div className="w-20 h-2 bg-subtle rounded-full overflow-hidden border border-border-subtle">
+              <div className="w-24 h-2.5 bg-subtle rounded-full overflow-hidden border border-border-subtle">
                 <div
                   className="h-full bg-accent transition-all duration-300"
                   style={{ width: `${occupancyRate}%` }}
                 />
               </div>
-              <span className="text-accent font-bold">{occupancyRate}%</span>
+              <span className="text-accent font-black">{occupancyRate}%</span>
             </div>
           </div>
         </div>
@@ -451,23 +451,23 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
 
         {/* 右侧：就地抽屉面板 (Inspector & Inbound Panel) - 宽度加大至 380px，字号大更清晰 */}
         {(inspectSlot || assignTargetSlot) && (
-          <div className="w-88 md:w-96 border-l border-border-subtle bg-surface flex flex-col shrink-0 z-10 animate-in slide-in-from-right duration-200 shadow-md">
+          <div className="w-88 md:w-96 border-l-[1.5px] border-border-subtle bg-surface flex flex-col shrink-0 z-10 animate-in slide-in-from-right duration-200 shadow-md">
             {/* A. 抽屉维护面板 (点击已占抽屉) */}
             {inspectSlot && inspectSlot.components[0] && (
               <>
-                <div className="p-3.5 border-b border-border-subtle flex items-center justify-between bg-canvas/40">
+                <div className="p-3.5 border-b-[1.5px] border-border-subtle flex items-center justify-between bg-canvas/60">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-sm font-bold px-2.5 py-0.5 bg-accent/10 text-accent border border-accent/20 rounded-[2px]">
+                    <span className="font-mono text-sm font-black px-2.5 py-0.5 bg-accent/15 text-accent border border-accent/30 rounded-[2px]">
                       {inspectSlot.slot}
                     </span>
-                    <span className="font-bold text-sm text-text-main">抽屉物理巡检</span>
+                    <span className="font-black text-sm text-text-main">抽屉物理巡检</span>
                   </div>
                   <button
                     onClick={() => setInspectSlot(null)}
                     className="p-1.5 text-text-muted hover:text-text-main rounded hover:bg-subtle"
                     title="关闭巡检面板"
                   >
-                    <X className="w-4 h-4" />
+                    <X className="w-4 h-4 stroke-[2.2]" />
                   </button>
                 </div>
 
@@ -477,10 +477,10 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
                     return (
                       <>
                         {/* 物料主要信息卡 */}
-                        <div className="p-3.5 bg-canvas border border-border-subtle rounded-[2px] space-y-2.5">
+                        <div className="p-3.5 bg-canvas border-[1.5px] border-border-subtle rounded-[2px] space-y-2.5">
                           <div>
-                            <span className="text-xs text-text-muted font-mono">{comp.category}</span>
-                            <h3 className="font-bold text-base text-text-main leading-snug mt-0.5">
+                            <span className="text-xs text-text-muted font-mono font-bold">{comp.category}</span>
+                            <h3 className="font-black text-base text-text-main leading-snug mt-0.5">
                               {comp.name}
                             </h3>
                           </div>
@@ -488,41 +488,41 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
                           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border-subtle font-mono text-xs">
                             {comp.value && (
                               <div>
-                                <span className="text-[11px] text-text-muted block">规格参数:</span>
-                                <span className="font-bold text-text-main text-sm">{comp.value}</span>
+                                <span className="text-[11px] text-text-muted font-bold block">规格参数:</span>
+                                <span className="font-black text-text-main text-sm">{comp.value}</span>
                               </div>
                             )}
                             {comp.package && (
                               <div>
-                                <span className="text-[11px] text-text-muted block">封装形式:</span>
-                                <span className="text-text-main font-medium">{comp.package}</span>
+                                <span className="text-[11px] text-text-muted font-bold block">封装形式:</span>
+                                <span className="text-text-main font-bold">{comp.package}</span>
                               </div>
                             )}
                           </div>
 
                           {comp.lcsc_part && (
                             <div className="pt-2 border-t border-border-subtle text-xs font-mono">
-                              <span className="text-[11px] text-text-muted block">立创编号:</span>
-                              <span className="font-bold text-accent text-sm">{comp.lcsc_part}</span>
+                              <span className="text-[11px] text-text-muted font-bold block">立创编号:</span>
+                              <span className="font-black text-accent text-sm">{comp.lcsc_part}</span>
                             </div>
                           )}
 
                           {comp.notes && (
                             <div className="pt-2 border-t border-border-subtle text-xs text-text-muted">
-                              <span className="block font-medium">备注:</span>
-                              <p className="mt-1 text-text-main bg-surface p-2 rounded-[2px] border border-border-subtle">
+                              <span className="block font-bold">备注:</span>
+                              <p className="mt-1 text-text-main bg-surface p-2 rounded-[2px] border border-border-subtle font-medium">
                                 {comp.notes}
                               </p>
                             </div>
                           )}
                         </div>
 
-                        {/* 就地库存快速步进微调器 (大字号、易点击) */}
-                        <div className="p-3.5 bg-canvas border border-border-subtle rounded-[2px] space-y-2.5">
+                        {/* 就地库存快速步进微调器 (大字号、粗按键) */}
+                        <div className="p-3.5 bg-canvas border-[1.5px] border-border-subtle rounded-[2px] space-y-2.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs sm:text-sm font-bold text-text-main">抽屉内现存数量</span>
-                            <div className="font-mono text-lg font-black text-accent">
-                              {comp.quantity} <span className="text-xs font-normal text-text-muted">件</span>
+                            <span className="text-xs sm:text-sm font-black text-text-main">抽屉内现存数量</span>
+                            <div className="font-mono text-xl font-black text-accent">
+                              {comp.quantity} <span className="text-xs font-bold text-text-muted">件</span>
                             </div>
                           </div>
 
@@ -530,7 +530,7 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
                             <button
                               disabled={adjustingStock || comp.quantity < 10}
                               onClick={() => handleAdjustQuantity(comp.id, -10)}
-                              className="py-2 bg-surface hover:bg-subtle text-text-main border border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-bold disabled:opacity-30"
+                              className="py-2.5 bg-surface hover:bg-subtle text-text-main border-[1.5px] border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-black disabled:opacity-30 shadow-2xs"
                               title="减少 10 件"
                             >
                               -10
@@ -538,7 +538,7 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
                             <button
                               disabled={adjustingStock || comp.quantity < 1}
                               onClick={() => handleAdjustQuantity(comp.id, -1)}
-                              className="py-2 bg-surface hover:bg-subtle text-text-main border border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-bold disabled:opacity-30"
+                              className="py-2.5 bg-surface hover:bg-subtle text-text-main border-[1.5px] border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-black disabled:opacity-30 shadow-2xs"
                               title="减少 1 件"
                             >
                               -1
@@ -546,7 +546,7 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
                             <button
                               disabled={adjustingStock}
                               onClick={() => handleAdjustQuantity(comp.id, 1)}
-                              className="py-2 bg-surface hover:bg-subtle text-text-main border border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-bold"
+                              className="py-2.5 bg-surface hover:bg-subtle text-text-main border-[1.5px] border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-black shadow-2xs"
                               title="增加 1 件"
                             >
                               +1
@@ -554,7 +554,7 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
                             <button
                               disabled={adjustingStock}
                               onClick={() => handleAdjustQuantity(comp.id, 10)}
-                              className="py-2 bg-surface hover:bg-subtle text-text-main border border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-bold"
+                              className="py-2.5 bg-surface hover:bg-subtle text-text-main border-[1.5px] border-border-subtle rounded-[2px] font-mono text-xs sm:text-sm font-black shadow-2xs"
                               title="增加 10 件"
                             >
                               +10

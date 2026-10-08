@@ -533,25 +533,25 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           </div>
         </div>
 
-        {/* 2. 核心工序流水线导航器 (Pipeline Stepper - 解决按钮杂乱) */}
-        <div className="pt-2 border-t border-border-subtle/60">
+        {/* 2. 核心工序流水线导航器 (Pipeline Stepper - 加粗硬朗、阶段分明) */}
+        <div className="pt-2 border-t-[1.5px] border-border-subtle/80">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {/* 步骤 ①：配料准备 */}
             <button
               type="button"
               onClick={() => setActiveStep('BOM')}
               className={cn(
-                'p-2.5 rounded-[2px] border text-left transition-all relative flex flex-col justify-between group',
+                'p-3 rounded-[3px] border-[1.5px] text-left transition-all relative flex flex-col justify-between group',
                 activeStep === 'BOM'
-                  ? 'border-accent bg-accent/[0.08] ring-1 ring-accent text-accent shadow-2xs'
-                  : 'border-border-subtle bg-canvas/40 hover:bg-surface text-text-muted hover:text-text-main'
+                  ? 'border-accent bg-accent/15 ring-2 ring-accent text-accent shadow-xs'
+                  : 'border-border-subtle bg-canvas/60 hover:bg-surface text-text-muted hover:text-text-main'
               )}
             >
-              <div className="flex items-center justify-between text-xs font-mono font-bold">
+              <div className="flex items-center justify-between text-xs sm:text-sm font-mono font-black">
                 <span>① 配料准备 (BOM)</span>
-                <span className="text-[11px] opacity-75">{project.items?.length || 0} 种规格</span>
+                <span className="text-xs font-bold">{project.items?.length || 0} 种</span>
               </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted truncate">
+              <div className="text-xs mt-1 font-sans font-bold text-text-muted truncate">
                 录入单板用量与元器件
               </div>
             </button>
@@ -561,17 +561,17 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
               type="button"
               onClick={() => setActiveStep('LOCK')}
               className={cn(
-                'p-2.5 rounded-[2px] border text-left transition-all relative flex flex-col justify-between group',
+                'p-3 rounded-[3px] border-[1.5px] text-left transition-all relative flex flex-col justify-between group',
                 activeStep === 'LOCK'
-                  ? 'border-amber-500 bg-amber-500/[0.08] ring-1 ring-amber-500 text-amber-600 dark:text-amber-400 shadow-2xs'
-                  : 'border-border-subtle bg-canvas/40 hover:bg-surface text-text-muted hover:text-text-main'
+                  ? 'border-amber-500 bg-amber-500/15 ring-2 ring-amber-500 text-amber-700 dark:text-amber-400 shadow-xs'
+                  : 'border-border-subtle bg-canvas/60 hover:bg-surface text-text-muted hover:text-text-main'
               )}
             >
-              <div className="flex items-center justify-between text-xs font-mono font-bold">
+              <div className="flex items-center justify-between text-xs sm:text-sm font-mono font-black">
                 <span>② 现货锁库 (Lock)</span>
-                <span className="text-[11px] opacity-75">{project.totalPiecesLocked || 0} 件已锁</span>
+                <span className="text-xs font-bold">{project.totalPiecesLocked || 0} 件已锁</span>
               </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted truncate">
+              <div className="text-xs mt-1 font-sans font-bold text-text-muted truncate">
                 预锁在库现货防挪用
               </div>
             </button>
@@ -581,19 +581,19 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
               type="button"
               onClick={() => setActiveStep('PROCURE')}
               className={cn(
-                'p-2.5 rounded-[2px] border text-left transition-all relative flex flex-col justify-between group',
+                'p-3 rounded-[3px] border-[1.5px] text-left transition-all relative flex flex-col justify-between group',
                 activeStep === 'PROCURE'
-                  ? 'border-rose-500 bg-rose-500/[0.08] ring-1 ring-rose-500 text-rose-600 dark:text-rose-400 shadow-2xs'
-                  : 'border-border-subtle bg-canvas/40 hover:bg-surface text-text-muted hover:text-text-main'
+                  ? 'border-rose-500 bg-rose-500/15 ring-2 ring-rose-500 text-rose-700 dark:text-rose-400 shadow-xs'
+                  : 'border-border-subtle bg-canvas/60 hover:bg-surface text-text-muted hover:text-text-main'
               )}
             >
-              <div className="flex items-center justify-between text-xs font-mono font-bold">
+              <div className="flex items-center justify-between text-xs sm:text-sm font-mono font-black">
                 <span>③ 缺料补购 (Procure)</span>
-                <span className={cn('text-[11px] font-bold', readiness >= 100 ? 'text-emerald-600' : 'text-rose-600 dark:text-rose-400')}>
+                <span className={cn('text-xs font-black', readiness >= 100 ? 'text-emerald-600' : 'text-rose-600 dark:text-rose-400')}>
                   {readiness >= 100 ? '已齐套' : `缺 ${project.shortage_items_count || 0} 项`}
                 </span>
               </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted truncate">
+              <div className="text-xs mt-1 font-sans font-bold text-text-muted truncate">
                 一键导出立创/Excel采购
               </div>
             </button>
@@ -603,19 +603,19 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
               type="button"
               onClick={() => setActiveStep('KITTING')}
               className={cn(
-                'p-2.5 rounded-[2px] border text-left transition-all relative flex flex-col justify-between group',
+                'p-3 rounded-[3px] border-[1.5px] text-left transition-all relative flex flex-col justify-between group',
                 activeStep === 'KITTING'
-                  ? 'border-emerald-500 bg-emerald-500/[0.08] ring-1 ring-emerald-500 text-emerald-600 dark:text-emerald-400 shadow-2xs'
-                  : 'border-border-subtle bg-canvas/40 hover:bg-surface text-text-muted hover:text-text-main'
+                  ? 'border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500 text-emerald-700 dark:text-emerald-400 shadow-xs'
+                  : 'border-border-subtle bg-canvas/60 hover:bg-surface text-text-muted hover:text-text-main'
               )}
             >
-              <div className="flex items-center justify-between text-xs font-mono font-bold">
+              <div className="flex items-center justify-between text-xs sm:text-sm font-mono font-black">
                 <span>④ 拣料完工 (Done)</span>
-                <span className="text-[11px] opacity-75">
+                <span className="text-xs font-bold">
                   已拣 {totalCheckedCount}/{project.items?.length || 0}
                 </span>
               </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted truncate">
+              <div className="text-xs mt-1 font-sans font-bold text-text-muted truncate">
                 按盒打卡拣料与消库
               </div>
             </button>

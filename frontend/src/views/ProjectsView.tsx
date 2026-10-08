@@ -273,16 +273,16 @@ export const ProjectsView: React.FC = () => {
                     className="pt-2 first:pt-0 cursor-pointer select-none group"
                   >
                     <div
-                      className={`p-3 rounded-[3px] border transition-all flex flex-col justify-between relative ${
+                      className={`p-3 rounded-[3px] border-[1.5px] transition-all flex flex-col justify-between relative ${
                         isSelected
-                          ? 'border-accent bg-accent/[0.08] shadow-2xs'
+                          ? 'border-accent bg-accent/[0.08] shadow-xs'
                           : 'border-border-subtle bg-surface hover:border-border-hover hover:bg-surface-hover'
                       }`}
                     >
-                      {/* 左侧状态色条 */}
+                      {/* 左侧状态色条 (加厚至 5px) */}
                       <span
                         className={cn(
-                          'absolute left-0 top-1.5 bottom-1.5 w-[4px] rounded-r-[1px] transition-all',
+                          'absolute left-0 top-1.5 bottom-1.5 w-[5px] rounded-r-[1px] transition-all',
                           isCompleted
                             ? 'bg-emerald-600'
                             : readiness >= 100
@@ -296,9 +296,9 @@ export const ProjectsView: React.FC = () => {
                         <div className="flex items-start justify-between gap-1.5">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5">
-                              <FolderGit2 className="w-4 h-4 text-accent shrink-0" />
+                              <FolderGit2 className="w-4 h-4 text-accent shrink-0 stroke-[2.2]" />
                               <h3
-                                className={`text-sm sm:text-base font-bold truncate leading-snug ${
+                                className={`text-sm sm:text-base font-black truncate leading-snug ${
                                   isSelected ? 'text-accent' : 'text-text-main'
                                 }`}
                                 title={p.name}
@@ -307,7 +307,7 @@ export const ProjectsView: React.FC = () => {
                               </h3>
                             </div>
 
-                            <p className="text-xs text-text-muted mt-1 line-clamp-1">
+                            <p className="text-xs text-text-muted font-medium mt-1 line-clamp-1">
                               {p.description || '暂无项目说明'}
                             </p>
                           </div>
@@ -315,24 +315,24 @@ export const ProjectsView: React.FC = () => {
                           {/* 快捷删除 */}
                           <button
                             onClick={(e) => handleDeleteProject(p.id, e)}
-                            className="p-1 text-text-muted hover:text-danger rounded opacity-30 group-hover:opacity-100 transition-opacity shrink-0"
+                            className="p-1 text-text-muted hover:text-danger rounded opacity-40 group-hover:opacity-100 transition-opacity shrink-0"
                             title="删除项目"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
                           </button>
                         </div>
 
-                        {/* 齐套率进度条 */}
+                        {/* 齐套率进度条 (加厚至 h-2) */}
                         <div className="mt-2.5 space-y-1">
-                          <div className="flex items-center justify-between text-xs font-mono">
+                          <div className="flex items-center justify-between text-xs font-mono font-bold">
                             <span className="text-text-muted">
                               齐套率: {p.ready_items_count || 0}/{p.total_items_count || 0} 项
                             </span>
-                            <span className={cn('font-bold', readiness >= 100 ? 'text-emerald-600' : 'text-accent')}>
+                            <span className={cn('font-black', readiness >= 100 ? 'text-emerald-600' : 'text-accent')}>
                               {readiness}%
                             </span>
                           </div>
-                          <div className="w-full h-1.5 bg-canvas rounded-full overflow-hidden border border-border-subtle">
+                          <div className="w-full h-2 bg-canvas rounded-full overflow-hidden border border-border-subtle">
                             <div
                               className={cn(
                                 'h-full rounded-full transition-all duration-300',
@@ -344,14 +344,14 @@ export const ProjectsView: React.FC = () => {
                         </div>
 
                         {/* 底部数量微标 */}
-                        <div className="mt-2.5 pt-1.5 border-t border-border-subtle/50 flex items-center justify-between text-xs text-text-muted font-mono">
-                          <span className="font-bold text-text-main">x{p.target_qty || 1} 套 (板)</span>
+                        <div className="mt-2.5 pt-1.5 border-t border-border-subtle flex items-center justify-between text-xs text-text-muted font-mono font-bold">
+                          <span className="font-black text-text-main">x{p.target_qty || 1} 套 (板)</span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
-                              <Lock className="w-3 h-3" />
+                            <span className="text-amber-600 dark:text-amber-400 font-black flex items-center gap-0.5">
+                              <Lock className="w-3 h-3 stroke-[2.2]" />
                               <span>已锁 {p.totalPiecesLocked || p.lockedCount || 0} 件</span>
                             </span>
-                            <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all" />
+                            <ChevronRight className="w-3.5 h-3.5 text-text-muted group-hover:text-accent group-hover:translate-x-0.5 transition-all stroke-[2.5]" />
                           </div>
                         </div>
                       </div>

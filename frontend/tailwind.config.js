@@ -55,8 +55,8 @@ export default {
         lg: 'var(--shadow-lg)',
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"Segoe UI"', 'Roboto', '"PingFang SC"', 'sans-serif'],
-        mono: ['"SF Mono"', '"JetBrains Mono"', 'ui-monospace', 'Menlo', 'Consolas', 'monospace'],
+        sans: ['"PingFang SC"', '"Microsoft YaHei UI"', '"Microsoft YaHei"', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        mono: ['"JetBrains Mono"', '"SF Mono"', 'Consolas', 'ui-monospace', 'Menlo', 'monospace'],
       },
     },
   },
