@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { bomApi } from '../api/bomApi';
+import { projectApi } from '../api/projectApi';
 import {
   BomMatchResult,
   BomSummary,
@@ -19,6 +20,7 @@ import {
   RefreshCw,
   AlertTriangle,
   XCircle,
+  X,
   Copy,
   Download,
   ClipboardPaste,
@@ -90,6 +92,44 @@ export const BomView: React.FC = () => {
   const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
   const [isLcscModalOpen, setIsLcscModalOpen] = useState(false);
   const [isDeductConfirmOpen, setIsDeductConfirmOpen] = useState(false);
+  const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [autoLockStock, setAutoLockStock] = useState(true);
+
+  // 转存为制作项目
+  const handleSaveAsProject = async () => {
+    if (!newProjectName.trim()) {
+      showToast('请输入项目名称', 'warn');
+      return;
+    }
+    const items = results.map((r) => ({
+      part_name: r.partName,
+      package: r.footprint || '',
+      unit_demand_qty: r.unitQty,
+      total_demand_qty: r.qtyNeeded,
+      component_id: r.matchedStock?.id || r.substituteOption?.component?.id || null,
+      designators: r.designators || '',
+    }));
+
+    try {
+      await projectApi.create(
+        {
+          name: newProjectName.trim(),
+          description: newProjectDesc.trim() || `基于 BOM 比对创建 (${multiplier}套)`,
+          target_qty: multiplier,
+        },
+        items,
+        autoLockStock
+      );
+      showToast(`✔ 成功创建项目「${newProjectName}」并完成自动锁库！`, 'success');
+      setCreateProjectModalOpen(false);
+      setNewProjectName('');
+      setNewProjectDesc('');
+    } catch (err: any) {
+      showToast('转存项目失败: ' + err.message, 'error');
+    }
+  };
 
   // 1. 处理剪贴板文本一键解析
   const handleParseText = async (textToParse?: string) => {
@@ -805,6 +845,15 @@ export const BomView: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => setCreateProjectModalOpen(true)}
+                className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 border border-accent/30 text-accent rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
+              >
+                <FolderPlus className="w-3.5 h-3.5" />
+                <span>保存为制作项目并锁库</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setIsLcscModalOpen(true)}
                 className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
               >
@@ -1177,6 +1226,86 @@ export const BomView: React.FC = () => {
                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
               >
                 确认扣库出库
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 保存为制作项目弹窗 */}
+      {createProjectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-surface border border-border-subtle rounded-2xl w-full max-w-md p-5 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border-subtle pb-2">
+              <h3 className="text-sm font-bold text-text-main flex items-center gap-2">
+                <FolderPlus className="w-4 h-4 text-accent" />
+                <span>保存为制作项目并自动预锁库</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setCreateProjectModalOpen(false)}
+                className="p-1 rounded text-text-dim hover:text-text-main"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-text-muted leading-relaxed">
+              将当前比对的 <strong className="text-text-main font-mono">{results.length}</strong> 项物料与用量打包创建为一个专属制作工程，以便长期跟踪齐套率。
+            </p>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block text-text-muted font-medium mb-1">项目名称 *</label>
+                <input
+                  type="text"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder="如: 我的智能时钟主板工程 v1.0"
+                  className="w-full bg-canvas border border-border-subtle rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-accent"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-text-muted font-medium mb-1">项目说明</label>
+                <textarea
+                  rows={2}
+                  value={newProjectDesc}
+                  onChange={(e) => setNewProjectDesc(e.target.value)}
+                  placeholder="记录打板批次、调试注意事项等..."
+                  className="w-full bg-canvas border border-border-subtle rounded-xl p-2.5 text-xs focus:outline-none focus:border-accent resize-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="autoLockCheck"
+                  checked={autoLockStock}
+                  onChange={(e) => setAutoLockStock(e.target.checked)}
+                  className="rounded text-accent focus:ring-accent"
+                />
+                <label htmlFor="autoLockCheck" className="text-text-main cursor-pointer">
+                  立即自动锁定在库现货库存 (防止被其他制作挪用)
+                </label>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border-subtle">
+              <button
+                type="button"
+                onClick={() => setCreateProjectModalOpen(false)}
+                className="px-4 py-1.5 bg-subtle hover:bg-surface-hover rounded-xl text-xs font-medium text-text-main transition-colors"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAsProject}
+                className="px-4 py-1.5 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
+              >
+                确认创建并锁库
               </button>
             </div>
           </div>
