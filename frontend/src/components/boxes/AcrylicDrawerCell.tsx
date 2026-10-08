@@ -8,6 +8,7 @@ interface AcrylicDrawerCellProps {
   isSelected?: boolean;
   isSearchMatch?: boolean;
   isSearchDimmed?: boolean;
+  isGuidedDimmed?: boolean;
   isAssignTarget?: boolean;
   kittingStatus?: 'SUFFICIENT' | 'SHORTAGE' | 'SUBSTITUTE' | 'FOCUSED' | null;
   kittingDemand?: number;
@@ -20,6 +21,7 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
   isSelected = false,
   isSearchMatch = false,
   isSearchDimmed = false,
+  isGuidedDimmed = false,
   isAssignTarget = false,
   kittingStatus = null,
   kittingDemand = 0,
@@ -69,7 +71,11 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
           ? 'ring-2 ring-accent border-accent bg-accent/20 shadow-sm'
           : ''
       } ${
-        isSearchDimmed ? 'opacity-40 hover:opacity-100' : ''
+        isGuidedDimmed && kittingStatus !== 'FOCUSED'
+          ? 'opacity-15 grayscale-[0.6] hover:opacity-75 transition-all duration-300'
+          : isSearchDimmed
+          ? 'opacity-40 hover:opacity-100'
+          : ''
       } ${
         // 散料划入格位靶标态
         isAssignTarget
