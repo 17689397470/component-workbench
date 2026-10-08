@@ -74,6 +74,21 @@ export const BoxesView: React.FC = () => {
     fetchBoxes();
   }, []);
 
+  useEffect(() => {
+    const handleNav = (e: any) => {
+      const loc = e.detail?.location;
+      if (!loc || boxes.length === 0) return;
+      const matched = boxes.find((b) => loc.startsWith(b.name) || loc.includes(b.name));
+      if (matched) {
+        setSelectedBoxName(matched.name);
+        setMobileViewMode('WORKSPACE');
+        showToast(`已直接透视收纳柜 [${matched.name}] 抽屉矩阵`, 'info');
+      }
+    };
+    window.addEventListener('GLOBAL_NAVIGATE_TO_BOX', handleNav);
+    return () => window.removeEventListener('GLOBAL_NAVIGATE_TO_BOX', handleNav);
+  }, [boxes]);
+
   // 统计大盘指标
   const metrics = useMemo(() => {
     let totalBoxes = boxes.length;

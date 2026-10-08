@@ -2,7 +2,7 @@ import React from 'react';
 import { ComponentItem } from '../../types/component';
 import { useInventoryStore } from '../../store/useInventoryStore';
 import { getCategoryIcon, formatSpec, cn } from '../../lib/utils';
-import { ExternalLink, Plus, Minus } from 'lucide-react';
+import { ExternalLink, Plus, Minus, Layers } from 'lucide-react';
 
 interface InventoryTableProps {
   components: ComponentItem[];
@@ -83,16 +83,35 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) =>
 
                   {/* 盒位 */}
                   <td className="py-2 px-3">
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setLocationFilter(item.location || '');
-                      }}
-                      className="px-1.5 py-0.5 bg-canvas hover:bg-accent/10 hover:text-accent hover:border-accent/40 border border-border-subtle rounded-[2px] text-[11px] font-mono text-text-muted font-bold transition-colors"
-                      title="点击按该盒位筛选"
-                    >
-                      📦 {item.location || '随手存放处'}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocationFilter(item.location || '');
+                        }}
+                        className="px-1.5 py-0.5 bg-canvas hover:bg-accent/10 hover:text-accent hover:border-accent/40 border border-border-subtle rounded-[2px] text-[11px] font-mono text-text-muted font-bold transition-colors cursor-pointer"
+                        title="点击按该盒位筛选表格"
+                      >
+                        📦 {item.location || '随手存放处'}
+                      </span>
+                      {item.location && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.dispatchEvent(
+                              new CustomEvent('GLOBAL_NAVIGATE_TO_BOX', {
+                                detail: { location: item.location, componentId: item.id },
+                              })
+                            );
+                          }}
+                          className="p-1 text-accent hover:bg-accent/15 border border-accent/30 rounded-[2px] transition-colors"
+                          title="在 2D 亚克力收纳柜中透视定位此抽屉"
+                        >
+                          <Layers className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </td>
 
                   {/* 就地步进器与数量 */}

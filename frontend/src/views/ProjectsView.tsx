@@ -14,6 +14,7 @@ import {
   Search,
   Trash2,
   CheckCircle2,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Modal } from '../components/ui/Modal';
 import { cn } from '../lib/utils';
@@ -164,7 +165,7 @@ export const ProjectsView: React.FC = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Hammer className="w-5 h-5 text-accent" />
-                <h1 className="font-bold text-base text-text-main tracking-tight">制作项目与套料</h1>
+                <h1 className="font-bold text-base text-text-main tracking-tight">工程与 BOM 工作台</h1>
                 <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-[2px] bg-subtle text-text-muted border border-border-subtle">
                   {projects.length}
                 </span>
@@ -172,13 +173,35 @@ export const ProjectsView: React.FC = () => {
 
               <button
                 onClick={() => setCreateModalOpen(true)}
-                className="px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-2xs transition-colors flex items-center gap-1"
+                className="px-2.5 py-1.5 text-xs sm:text-sm font-bold bg-subtle text-text-main hover:bg-subtle-hover border border-border-subtle rounded-[2px] transition-colors flex items-center gap-1"
                 title="新建硬件制作项目"
               >
                 <Plus className="w-4 h-4" />
                 <span>新建</span>
               </button>
             </div>
+
+            {/* 极速 BOM 寻料入口 (常驻顶部，极富仪式感) */}
+            <button
+              onClick={() => {
+                setSelectedProjectId(null);
+                setMobileViewMode('WORKSPACE');
+              }}
+              className={cn(
+                'w-full py-2 px-3 text-xs font-black rounded-[2px] border transition-all flex items-center justify-between shadow-2xs',
+                selectedProjectId === null
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-accent/10 hover:bg-accent/20 text-accent border-accent/40'
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>⚡ 粘贴/导入 BOM 极速寻料</span>
+              </div>
+              <span className="text-[10px] uppercase font-mono px-1 rounded bg-black/15">
+                草稿沙盘
+              </span>
+            </button>
 
             {/* 紧凑搜索栏 */}
             <div className="relative">
@@ -382,6 +405,10 @@ export const ProjectsView: React.FC = () => {
             onProjectUpdated={() => fetchProjects(selectedProjectId || undefined)}
             onDeleteProject={(id) => handleDeleteProject(id)}
             onBackToList={() => setMobileViewMode('LIST')}
+            onProjectCreated={(newId) => {
+              setSelectedProjectId(newId);
+              fetchProjects(newId);
+            }}
           />
         </main>
       </div>

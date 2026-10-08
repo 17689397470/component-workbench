@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { ProjectDetail, ProjectItemDetail, ProjectItem } from '../../types/project';
+import { ProjectDetail, ProjectItemDetail } from '../../types/project';
 import { ComponentItem } from '../../types/component';
+import {
+  BomMatchResult,
+  BomSummary,
+  BomParsedData,
+  BomColumnMapping,
+  ShortageItem,
+} from '../../types/bom';
 import { projectApi } from '../../api/projectApi';
 import { componentApi } from '../../api/componentApi';
+import { bomApi } from '../../api/bomApi';
 import { useToastStore } from '../../store/useToastStore';
+import { KittingBoxSandbox, KittingMaterial, KittingShortageItem } from './KittingBoxSandbox';
 import {
   FolderGit2,
   Lock,
@@ -18,116 +27,117 @@ import {
   Check,
   X,
   Edit2,
-  Award,
   RefreshCw,
   Box,
   Layers,
-  ChevronRight,
   Search,
   CheckSquare,
   Square,
   ArrowRight,
-  ClipboardList,
-  MapPin,
-  ExternalLink,
+  ClipboardPaste,
+  UploadCloud,
+  FileSpreadsheet,
   ArrowLeft,
-  MoreVertical,
-  CheckCheck,
   Sparkles,
+  Maximize2,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
+import { Modal } from '../ui/Modal';
 import { cn } from '../../lib/utils';
+
+// 嘉立创EDA标准格式示例数据
+const SAMPLE_BOM_TEXT = `器件\t位号\t封装\t数量\t立创编号
+100nF 50V\tC1, C2, C3, C4\t0603\t4\tC2057
+10µF 16V\tC5, C6\t0805\t2\tC15849
+10k 1%\tR1, R2, R3, R4\t0805\t4\tC17414
+1k 1%\tR5, R6\t0805\t2\tC17513
+4.7k 5%\tR7\t0805\t1\t
+AMS1117-3.3\tU1\tSOT-223\t1\tC6186
+CH340C\tU2\tSOP-16\t1\tC84681
+STM32F103C8T6\tU3\tLQFP-48\t1\tC8734
+SS34\tD1\tSMA\t1\tC8678`;
 
 interface ProjectWorkspaceProps {
   projectId: number | null;
   onProjectUpdated?: () => void;
   onDeleteProject?: (id: number) => void;
   onBackToList?: () => void;
+  onNavigateToBoxes?: (boxName: string) => void;
+  onProjectCreated?: (newId: number) => void;
 }
-
-type PipelineStep = 'BOM' | 'LOCK' | 'PROCURE' | 'KITTING';
 
 export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   projectId,
   onProjectUpdated,
   onDeleteProject,
   onBackToList,
+  onNavigateToBoxes,
+  onProjectCreated,
 }) => {
   const { showToast } = useToastStore();
 
+  // 当前工程数据（当处于已建工程模式）
   const [project, setProject] = useState<ProjectDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // 当前工序流水线步骤 (默认由项目状态智能推导，用户可自由点击切换)
-  const [activeStep, setActiveStep] = useState<PipelineStep>('BOM');
+  // 极速 BOM 草稿模式相关状态（当 projectId 为 null 或主动进入 BOM 比对）
+  const [isFastBomMode, setIsFastBomMode] = useState(false);
+  const [bomInputMode, setBomInputMode] = useState<'paste' | 'file'>('paste');
+  const [pasteText, setPasteText] = useState('');
+  const [fileName, setFileName] = useState('');
+  const [parsingBom, setParsingBom] = useState(false);
+  const [comparingBom, setComparingBom] = useState(false);
+  const [bomMultiplier, setBomMultiplier] = useState(1);
+  const [bomResults, setBomResults] = useState<BomMatchResult[]>([]);
+  const [bomSummary, setBomSummary] = useState<BomSummary | null>(null);
+  const [bomShortages, setBomShortages] = useState<ShortageItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // 搜索过滤框
+  // 极速 BOM 转存工程弹窗
+  const [saveAsProjectModalOpen, setSaveAsProjectModalOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [autoLockStock, setAutoLockStock] = useState(true);
+
+  // 中栏与右栏沙盘联动状态
+  const [focusedItemId, setFocusedItemId] = useState<string | number | null>(null);
+  const [checkedPicks, setCheckedPicks] = useState<Record<string, boolean>>({});
   const [filterQuery, setFilterQuery] = useState('');
-
-  // 拣料勾选状态 (本地记忆)
-  const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'SHORTAGE' | 'SUFFICIENT'>('ALL');
 
   // 打样套数微调
   const [isEditingQty, setIsEditingQty] = useState(false);
   const [targetQtyInput, setTargetQtyInput] = useState<number>(1);
 
-  // 内联快速加料栏状态 (在 Step 1 中使用)
+  // 移动端切换：'LIST' (清单) | 'SANDBOX' (2D沙盘)
+  const [mobileTab, setMobileTab] = useState<'LIST' | 'SANDBOX'>('LIST');
+
+  // 内联快速加料抽屉
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [addPartName, setAddPartName] = useState('');
   const [addPkg, setAddPkg] = useState('');
-  const [addUnitQty, setAddUnitQty] = useState<number>(1);
+  const [addUnitQty, setAddUnitQty] = useState(1);
   const [addDesignators, setAddDesignators] = useState('');
   const [searchCandidates, setSearchCandidates] = useState<ComponentItem[]>([]);
   const [searchingCandidates, setSearchingCandidates] = useState(false);
   const [selectedComp, setSelectedComp] = useState<ComponentItem | null>(null);
   const [submittingAdd, setSubmittingAdd] = useState(false);
 
-  // 采购清单数据缓存 (在 Step 3 中使用)
-  const [purchaseData, setPurchaseData] = useState<any>(null);
-  const [loadingPurchase, setLoadingPurchase] = useState(false);
-
-  // 更多操作下拉菜单
-  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-
-  // 点击外部关闭下拉菜单
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setMoreMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const loadProjectDetail = async (id: number, autoSelectStep: boolean = false) => {
+  // 加载项目详情
+  const loadProjectDetail = async (id: number) => {
     setLoading(true);
     try {
       const res = await projectApi.getDetail(id);
       if (res.success && res.data) {
-        const proj = res.data;
-        setProject(proj);
-        setTargetQtyInput(proj.target_qty || 1);
-
-        // 如果需要智能推导步骤
-        if (autoSelectStep) {
-          const readiness = proj.readinessPercent || 0;
-          if (proj.status === 'COMPLETED') {
-            setActiveStep('KITTING');
-          } else if (!proj.items || proj.items.length === 0) {
-            setActiveStep('BOM');
-          } else if (readiness >= 100) {
-            setActiveStep('KITTING');
-          } else if ((proj.totalPiecesLocked || 0) === 0) {
-            setActiveStep('LOCK');
-          } else {
-            setActiveStep('PROCURE');
-          }
-        }
+        setProject(res.data);
+        setTargetQtyInput(res.data.target_qty || 1);
+        setIsFastBomMode(false);
       }
     } catch (err: any) {
-      showToast('获取项目套料明细失败: ' + err.message, 'error');
+      showToast('获取项目详情失败: ' + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -135,108 +145,72 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 
   useEffect(() => {
     if (projectId) {
-      setIsQuickAddOpen(false);
-      setFilterQuery('');
-      loadProjectDetail(projectId, true);
+      setIsFastBomMode(false);
+      loadProjectDetail(projectId);
+    } else {
+      setIsFastBomMode(true);
+      setProject(null);
     }
   }, [projectId]);
 
-  // 当切换到采购步骤时，自动加载缺料采购清单
-  useEffect(() => {
-    if (activeStep === 'PROCURE' && project?.id) {
-      fetchPurchaseList(project.id);
-    }
-  }, [activeStep, project?.id]);
-
-  const fetchPurchaseList = async (id: number) => {
-    setLoadingPurchase(true);
-    try {
-      const res = await projectApi.getPurchaseList(id);
-      if (res.success && res.data) {
-        setPurchaseData(res.data);
-      }
-    } catch (err: any) {
-      console.error(err);
-    } finally {
-      setLoadingPurchase(false);
-    }
-  };
-
-  // 修改目标套数
+  // 更新目标套数
   const handleUpdateTargetQty = async () => {
     if (!project) return;
+    const val = Math.max(1, targetQtyInput);
+    setActionLoading(true);
     try {
-      await projectApi.update(project.id, { target_qty: Math.max(1, targetQtyInput) });
+      await projectApi.update(project.id, { target_qty: val });
+      showToast(`已将制作目标套数更新为 ${val} 套`, 'success');
       setIsEditingQty(false);
-      showToast('✔ 已更新打样套数并重新计算全板用量', 'success');
-      loadProjectDetail(project.id, false);
+      loadProjectDetail(project.id);
       onProjectUpdated?.();
     } catch (err: any) {
-      showToast('更新失败: ' + err.message, 'error');
+      showToast('更新套数失败: ' + err.message, 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  // 一键预锁库存
-  const handleLockAll = async () => {
+  // 一键锁库
+  const handleLockStock = async () => {
     if (!project) return;
     setActionLoading(true);
     try {
       const res = await projectApi.lock(project.id);
       if (res.success) {
-        showToast('✔ 已为项目成功锁定现货库存！', 'success');
-        loadProjectDetail(project.id, false);
+        showToast(`✔ 成功锁定物料库存！共锁定 ${res.data?.totalPiecesLocked || 0} 件现货`, 'success');
+        loadProjectDetail(project.id);
         onProjectUpdated?.();
       }
     } catch (err: any) {
-      showToast('锁库失败: ' + err.message, 'error');
+      showToast('锁定库存失败: ' + err.message, 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // 一键释放锁定
-  const handleUnlockAll = async () => {
+  // 释放锁库
+  const handleUnlockStock = async () => {
     if (!project) return;
+    if (!window.confirm('确定要释放此项目锁定的库存吗？释放后其他项目可以使用这些物料。')) {
+      return;
+    }
     setActionLoading(true);
     try {
-      await projectApi.unlock(project.id);
-      showToast('✔ 已释放项目全部物料锁定', 'success');
-      loadProjectDetail(project.id, false);
-      onProjectUpdated?.();
+      const res = await projectApi.unlock(project.id);
+      if (res.success) {
+        showToast('已释放此项目锁定的库存', 'info');
+        loadProjectDetail(project.id);
+        onProjectUpdated?.();
+      }
     } catch (err: any) {
-      showToast('释放失败: ' + err.message, 'error');
+      showToast('释放锁库失败: ' + err.message, 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
-  // 单项物料解锁
-  const handleUnlockSingle = async (componentId?: number | null) => {
-    if (!project || !componentId) return;
-    try {
-      await projectApi.unlock(project.id, componentId);
-      showToast('已释放该物料锁定', 'success');
-      loadProjectDetail(project.id, false);
-      onProjectUpdated?.();
-    } catch (err: any) {
-      showToast('释放失败: ' + err.message, 'error');
-    }
-  };
-
-  // 从项目中移除元器件
-  const handleRemoveItem = async (itemId: number) => {
-    if (!project) return;
-    try {
-      await projectApi.removeItem(project.id, itemId);
-      showToast('已从项目中移除该物料', 'success');
-      loadProjectDetail(project.id, false);
-      onProjectUpdated?.();
-    } catch (err: any) {
-      showToast('移除失败: ' + err.message, 'error');
-    }
-  };
-
-  // 完工消库
+  // 完工出库消库
   const handleCompleteProject = async () => {
     if (!project) return;
     if (!window.confirm(`确认将项目「${project.name}」标记为完工并真正从工坊库存中扣减消库吗？`)) {
@@ -246,10 +220,123 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     try {
       await projectApi.complete(project.id);
       showToast('🎉 项目已正式完工并完成出库消减！', 'success');
-      loadProjectDetail(project.id, false);
+      loadProjectDetail(project.id);
       onProjectUpdated?.();
     } catch (err: any) {
       showToast('完工消库失败: ' + err.message, 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // 执行 BOM 文本解析与比对
+  const handleParseAndCompareBomText = async (textToParse?: string) => {
+    const text = textToParse || pasteText;
+    if (!text.trim()) {
+      showToast('请先输入或粘贴 BOM 文本内容', 'warn');
+      return;
+    }
+    setParsingBom(true);
+    try {
+      const parseRes = await bomApi.parseBomText(text);
+      if (parseRes.success && parseRes.data) {
+        const { dataRows, autoMapping, totalRows, detectedTemplate } = parseRes.data;
+        showToast(`✔ 成功识别 ${totalRows} 行数据 [${detectedTemplate}]`, 'success');
+        setComparingBom(true);
+        const compRes = await bomApi.compareBom({
+          rows: dataRows,
+          mapping: autoMapping,
+          multiplier: bomMultiplier,
+          aggregate: true,
+        });
+        if (compRes.success && compRes.data) {
+          setBomResults(compRes.data.results);
+          setBomSummary(compRes.data.summary);
+          setBomShortages(compRes.data.shortageList || []);
+          setCheckedPicks({});
+          const sum = compRes.data.summary;
+          const matchPercent = sum.totalItems > 0 ? Math.round(((sum.exactMatchCount + sum.substituteCount) / sum.totalItems) * 100) : 100;
+          showToast(`✔ 比对完成：齐套率 ${matchPercent}%`, 'success');
+        }
+      }
+    } catch (err: any) {
+      showToast('BOM 解析比对失败: ' + err.message, 'error');
+    } finally {
+      setParsingBom(false);
+      setComparingBom(false);
+    }
+  };
+
+  // 处理 BOM 文件上传
+  const handleFileUpload = async (file: File) => {
+    if (!file) return;
+    setParsingBom(true);
+    setFileName(file.name);
+    try {
+      const upRes = await bomApi.uploadBomFile(file);
+      if (upRes.success && upRes.data) {
+        showToast(`✔ 导入 ${file.name} 成功：共 ${upRes.data.totalRows} 行`, 'success');
+        setComparingBom(true);
+        const compRes = await bomApi.compareBom({
+          rows: upRes.data.dataRows,
+          mapping: upRes.data.autoMapping,
+          multiplier: bomMultiplier,
+          aggregate: true,
+        });
+        if (compRes.success && compRes.data) {
+          setBomResults(compRes.data.results);
+          setBomSummary(compRes.data.summary);
+          setBomShortages(compRes.data.shortageList || []);
+          setCheckedPicks({});
+        }
+      }
+    } catch (err: any) {
+      showToast('文件解析失败: ' + err.message, 'error');
+    } finally {
+      setParsingBom(false);
+      setComparingBom(false);
+    }
+  };
+
+  // 将当前极速比对结果转存为正式工程
+  const handleSaveAsOfficialProject = async () => {
+    if (!newProjectName.trim()) {
+      showToast('请输入工程名称', 'warn');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const items = bomResults.map((r) => ({
+        part_name: r.partName,
+        package: r.footprint || '',
+        unit_demand_qty: r.unitQty,
+        total_demand_qty: r.qtyNeeded,
+        component_id: r.matchedStock?.id || r.substituteOption?.component?.id || null,
+        designators: r.designators || '',
+      }));
+
+      const res = await projectApi.create(
+        {
+          name: newProjectName.trim(),
+          description: newProjectDesc.trim() || `由极速 BOM 比对草稿生成，共 ${items.length} 种物料`,
+          target_qty: bomMultiplier,
+        },
+        items,
+        autoLockStock
+      );
+
+      if (res.success && res.data) {
+        const createdProj = res.data;
+        showToast(`✔ 成功保存为硬件工程「${createdProj.name}」！`, 'success');
+        if (autoLockStock && createdProj.id) {
+          await projectApi.lock(createdProj.id).catch(() => {});
+        }
+        setSaveAsProjectModalOpen(false);
+        onProjectCreated?.(createdProj.id);
+        onProjectUpdated?.();
+      }
+    } catch (err: any) {
+      showToast('保存为工程失败: ' + err.message, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -275,27 +362,14 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     }
   };
 
-  // 选中已有物料自动填入
-  const handleSelectCandidate = (comp: ComponentItem) => {
-    setSelectedComp(comp);
-    setAddPartName(comp.name);
-    setAddPkg(comp.package || '');
-    setSearchCandidates([]);
-  };
-
   // 提交内联加料
   const handleQuickAddSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!project) return;
     if (!addPartName.trim()) {
-      showToast('请输入物料规格/型号', 'warn');
+      showToast('请输入物料型号/规格', 'warn');
       return;
     }
-    if (addUnitQty <= 0) {
-      showToast('单板需求用量必须大于 0', 'warn');
-      return;
-    }
-
     setSubmittingAdd(true);
     try {
       await projectApi.addItem(project.id, {
@@ -313,153 +387,247 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
       setAddDesignators('');
       setSelectedComp(null);
       setSearchCandidates([]);
-      loadProjectDetail(project.id, false);
+      setIsQuickAddOpen(false);
+      loadProjectDetail(project.id);
       onProjectUpdated?.();
     } catch (err: any) {
-      showToast('添加失败: ' + err.message, 'error');
+      showToast('添加物料失败: ' + err.message, 'error');
     } finally {
       setSubmittingAdd(false);
     }
   };
 
-  // 拣料勾选切换
-  const toggleCheckItem = (id: number) => {
-    setCheckedItems((prev) => ({
+  // 删除单项物料
+  const handleRemoveItem = async (itemId: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!project) return;
+    if (!window.confirm('确定从本项目中移除此物料吗？')) return;
+    try {
+      await projectApi.removeItem(project.id, itemId);
+      showToast('已移除物料', 'info');
+      loadProjectDetail(project.id);
+      onProjectUpdated?.();
+    } catch (err: any) {
+      showToast('移除失败: ' + err.message, 'error');
+    }
+  };
+
+  // 勾选打卡切换
+  const handleTogglePick = (id: string | number, nextPicked?: boolean) => {
+    const key = String(id);
+    setCheckedPicks((prev) => ({
       ...prev,
-      [id]: !prev[id],
+      [key]: nextPicked !== undefined ? nextPicked : !prev[key],
     }));
   };
 
-  // 过滤后的物料列表
-  const filteredItems = useMemo(() => {
+  // 全选或取消所有打卡
+  const handleToggleSelectAllPicks = () => {
+    const allMaterials = isFastBomMode ? bomMaterials : projectMaterials;
+    const allPicked = allMaterials.every((m) => checkedPicks[String(m.id)]);
+    const nextMap: Record<string, boolean> = {};
+    allMaterials.forEach((m) => {
+      nextMap[String(m.id)] = !allPicked;
+    });
+    setCheckedPicks(nextMap);
+    showToast(!allPicked ? '✔ 已标记全部物料取料打卡完成' : '已重置所有取料打卡标记', 'info');
+  };
+
+  // 统一转换物料数据为 KittingMaterial 供给右侧沙盘
+  const projectMaterials: KittingMaterial[] = useMemo(() => {
     if (!project?.items) return [];
-    if (!filterQuery.trim()) return project.items;
-    const q = filterQuery.toLowerCase().trim();
-    return project.items.filter(
-      (it) =>
-        it.part_name.toLowerCase().includes(q) ||
-        it.package?.toLowerCase().includes(q) ||
-        it.designators?.toLowerCase().includes(q) ||
-        it.comp_location?.toLowerCase().includes(q) ||
-        it.comp_lcsc?.toLowerCase().includes(q)
-    );
-  }, [project?.items, filterQuery]);
-
-  // 按物理收纳盒/货位分组数据 (Kitting Groups)
-  const kittingGroups = useMemo(() => {
-    const map = new Map<string, ProjectItemDetail[]>();
-    for (const it of filteredItems) {
-      const loc = it.comp_location?.trim() || '未指定货位 / 待入库';
-      if (!map.has(loc)) {
-        map.set(loc, []);
-      }
-      map.get(loc)!.push(it);
-    }
-    return Array.from(map.entries()).map(([location, items]) => ({
-      location,
-      items,
-      totalCount: items.length,
-      checkedCount: items.filter((i) => checkedItems[i.id]).length,
-      totalDemandPieces: items.reduce((acc, i) => acc + (i.total_demand_qty || 0), 0),
+    return project.items.map((it) => ({
+      id: it.id,
+      componentId: it.component_id,
+      name: it.part_name,
+      package: it.package,
+      location: it.comp_location,
+      demandQty: it.total_demand_qty,
+      stockQty: it.comp_total_stock,
+      status: it.status,
+      designators: it.designators,
+      isPicked: !!checkedPicks[String(it.id)],
     }));
-  }, [filteredItems, checkedItems]);
+  }, [project?.items, checkedPicks]);
 
-  const totalCheckedCount = useMemo(() => {
-    if (!project?.items) return 0;
-    return project.items.filter((it) => checkedItems[it.id]).length;
-  }, [project?.items, checkedItems]);
+  const bomMaterials: KittingMaterial[] = useMemo(() => {
+    return bomResults.map((r, idx) => {
+      const loc = r.isAdoptedSubstitute
+        ? r.substituteOption?.component?.location
+        : r.matchedStock?.location;
+      const stock = r.isAdoptedSubstitute
+        ? r.substituteOption?.component?.quantity
+        : r.matchedStock?.quantity;
+      return {
+        id: `bom-${idx}`,
+        componentId: r.matchedStock?.id || r.substituteOption?.component?.id || null,
+        name: r.partName,
+        package: r.footprint,
+        value: r.matchedStock?.value || '',
+        location: loc,
+        demandQty: r.qtyNeeded,
+        stockQty: stock,
+        status:
+          r.status === 'EXACT_MATCH'
+            ? 'SUFFICIENT'
+            : r.status === 'SUBSTITUTE_AVAILABLE'
+            ? 'SUBSTITUTE'
+            : 'SHORTAGE',
+        designators: r.designators,
+        isPicked: !!checkedPicks[`bom-${idx}`],
+      };
+    });
+  }, [bomResults, checkedPicks]);
 
-  if (!projectId || !project) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center p-8 text-center text-text-muted border border-border-subtle rounded-md bg-canvas">
-        <FolderGit2 className="w-14 h-14 text-border-hover mb-3 opacity-60" />
-        <h3 className="text-base font-bold text-text-main">请在左侧选择一个制作项目</h3>
-        <p className="text-xs sm:text-sm text-text-muted mt-1.5 max-w-sm">
-          点击左侧正在进行的硬件打板项目，即可在右侧展开套料锁库看板与拣料清单。
-        </p>
-      </div>
-    );
-  }
+  // 缺料汇总
+  const shortages: KittingShortageItem[] = useMemo(() => {
+    if (isFastBomMode) {
+      return bomShortages.map((s) => ({
+        name: s.partName,
+        package: s.footprint,
+        shortageQty: s.missingQty,
+        lcsc: s.lcscPart,
+      }));
+    }
+    if (!project?.items) return [];
+    return project.items
+      .filter((it) => it.status === 'SHORTAGE' || (it.shortage_qty || 0) > 0)
+      .map((it) => ({
+        name: it.part_name,
+        package: it.package,
+        shortageQty: it.shortage_qty || it.total_demand_qty,
+        lcsc: it.comp_lcsc,
+      }));
+  }, [isFastBomMode, bomShortages, project?.items]);
 
-  const readiness = project.readinessPercent || 0;
-  const isCompleted = project.status === 'COMPLETED';
-  const hasShortage = (project.shortage_items_count || 0) > 0 || readiness < 100;
+  // 当前激活的物料总集
+  const currentMaterials = isFastBomMode ? bomMaterials : projectMaterials;
+
+  // 过滤后的中栏物料列表
+  const filteredMaterials = useMemo(() => {
+    return currentMaterials.filter((m) => {
+      if (statusFilter === 'SHORTAGE' && m.status !== 'SHORTAGE') return false;
+      if (statusFilter === 'SUFFICIENT' && m.status === 'SHORTAGE') return false;
+
+      if (filterQuery.trim()) {
+        const q = filterQuery.toLowerCase().trim();
+        const matchName = m.name.toLowerCase().includes(q);
+        const matchPkg = m.package?.toLowerCase().includes(q);
+        const matchLoc = m.location?.toLowerCase().includes(q);
+        const matchDes = m.designators?.toLowerCase().includes(q);
+        if (!matchName && !matchPkg && !matchLoc && !matchDes) return false;
+      }
+      return true;
+    });
+  }, [currentMaterials, statusFilter, filterQuery]);
+
+  // 齐套与打卡统计
+  const totalCount = currentMaterials.length;
+  const pickedCount = currentMaterials.filter((m) => m.isPicked).length;
+  const readyCount = currentMaterials.filter((m) => m.status !== 'SHORTAGE').length;
+  const readinessRate =
+    totalCount > 0
+      ? Math.round((readyCount / totalCount) * 100)
+      : isFastBomMode && bomSummary && bomSummary.totalItems > 0
+      ? Math.round(((bomSummary.exactMatchCount + bomSummary.substituteCount) / bomSummary.totalItems) * 100)
+      : 100;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-canvas border border-border-subtle rounded-md overflow-hidden relative">
-      {/* 1. 顶部控制台大盘：项目标牌 + 右上角更多操作 */}
-      <div className="p-4 bg-surface border-b border-border-subtle shrink-0 space-y-3.5">
+    <div className="flex-1 flex flex-col min-h-0 bg-canvas border border-border-subtle rounded-none overflow-hidden select-none">
+      {/* 1. 顶部工规状态与控制台标牌 */}
+      <div className="p-3 bg-surface border-b border-border-subtle shrink-0 flex flex-col gap-2.5">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          {/* 左侧：返回按键(移动端) + 项目主标题与目标套数 */}
-          <div className="flex items-center gap-3 min-w-0">
+          {/* 左侧：返回按键(移动端) + 工程/BOM主标题 */}
+          <div className="flex items-center gap-2.5 min-w-0">
             {onBackToList && (
               <button
                 onClick={onBackToList}
-                className="md:hidden p-2 hover:bg-subtle rounded text-text-muted hover:text-text-main border border-border-subtle"
+                className="md:hidden p-1.5 hover:bg-subtle rounded-[2px] text-text-muted hover:text-text-main border border-border-subtle"
                 title="返回项目列表"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
             )}
 
-            <div className="w-10 h-10 rounded-[2px] bg-accent/10 text-accent flex items-center justify-center font-bold shrink-0">
-              <FolderGit2 className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-[2px] bg-accent/10 text-accent flex items-center justify-center font-bold shrink-0">
+              {isFastBomMode ? <FileSpreadsheet className="w-4 h-4" /> : <FolderGit2 className="w-4 h-4" />}
             </div>
 
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-bold text-text-main truncate tracking-tight">
-                  {project.name}
+                <h2 className="text-sm sm:text-base font-black text-text-main truncate tracking-tight">
+                  {isFastBomMode ? '极速 BOM 比对与寻料沙盘' : project?.name}
                 </h2>
 
-                {/* 状态徽标 */}
-                {isCompleted ? (
-                  <span className="px-2 py-0.5 rounded-[2px] text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                {/* 状态指示徽标 */}
+                {isFastBomMode ? (
+                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-accent/15 text-accent border border-accent/30">
+                    草稿即时比对
+                  </span>
+                ) : project?.status === 'COMPLETED' ? (
+                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                     已完工消库
                   </span>
-                ) : readiness >= 100 ? (
-                  <span className="px-2 py-0.5 rounded-[2px] text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                ) : readinessRate >= 100 ? (
+                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
                     现货齐套待焊
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-[2px] text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                    备料中 ({readiness}%)
+                  <span className="px-2 py-0.5 rounded-[2px] text-[11px] font-mono font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                    备料中 ({readinessRate}%)
                   </span>
                 )}
               </div>
 
-              <p className="text-xs text-text-muted mt-0.5 truncate max-w-xl">
-                {project.description || '暂无项目说明'}
-              </p>
+              {!isFastBomMode && project?.description && (
+                <p className="text-xs text-text-muted truncate max-w-lg mt-0.5">
+                  {project.description}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* 右侧：目标套数就地微调 + 更多选项菜单 */}
-          <div className="flex items-center gap-2 font-mono">
-            {/* 目标套数 */}
-            <div className="flex items-center gap-1.5 text-xs text-text-muted bg-canvas px-3 py-1.5 rounded-[2px] border border-border-subtle">
+          {/* 右侧：套数微调 + 核心工规操作按钮组 */}
+          <div className="flex items-center gap-2 font-mono ml-auto">
+            {/* 打样套数微调 */}
+            <div className="flex items-center gap-1.5 text-xs text-text-muted bg-canvas px-2.5 py-1 rounded-[2px] border border-border-subtle">
               <span>制作目标:</span>
-              {isEditingQty ? (
+              {isFastBomMode ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    value={bomMultiplier}
+                    onChange={(e) => {
+                      const val = Math.max(1, parseInt(e.target.value, 10) || 1);
+                      setBomMultiplier(val);
+                      if (bomResults.length > 0) {
+                        handleParseAndCompareBomText();
+                      }
+                    }}
+                    className="w-12 bg-surface border border-border-subtle rounded-[2px] px-1 py-0.2 text-xs font-bold text-center text-text-main"
+                  />
+                  <span>套</span>
+                </div>
+              ) : isEditingQty ? (
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
                     min={1}
                     value={targetQtyInput}
                     onChange={(e) => setTargetQtyInput(parseInt(e.target.value, 10) || 1)}
-                    className="w-14 bg-surface border border-border-subtle rounded-[2px] px-1.5 py-0.5 text-xs text-text-main text-center font-bold"
+                    className="w-12 bg-surface border border-border-subtle rounded-[2px] px-1 py-0.2 text-xs font-bold text-center text-text-main"
                     autoFocus
                   />
                   <button
-                    type="button"
                     onClick={handleUpdateTargetQty}
-                    className="p-1 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded"
+                    className="p-0.5 text-emerald-600 hover:bg-emerald-50 rounded"
                   >
                     <Check className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    type="button"
                     onClick={() => setIsEditingQty(false)}
-                    className="p-1 text-text-muted hover:bg-subtle rounded"
+                    className="p-0.5 text-text-muted hover:bg-subtle rounded"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -467,745 +635,580 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
               ) : (
                 <div
                   onClick={() => setIsEditingQty(true)}
-                  className="font-bold text-accent cursor-pointer hover:underline flex items-center gap-1"
-                  title="点击修改打样套数"
+                  className="font-black text-accent cursor-pointer hover:underline flex items-center gap-1"
+                  title="点击修改打板套数"
                 >
-                  <span>{project.target_qty || 1} 套 (板)</span>
+                  <span>{project?.target_qty || 1} 套 (板)</span>
                   <Edit2 className="w-3 h-3 text-text-muted" />
                 </div>
               )}
             </div>
 
-            {/* 刷新 */}
-            <button
-              onClick={() => loadProjectDetail(project.id, false)}
-              disabled={loading}
-              className="p-2 hover:bg-subtle text-text-muted hover:text-text-main border border-border-subtle rounded-[2px] transition-colors"
-              title="刷新数据"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-
-            {/* 更多菜单 (收拢次要操作) */}
-            <div className="relative" ref={moreMenuRef}>
+            {/* 极速模式下的“保存为正式工程”按钮 */}
+            {isFastBomMode && bomResults.length > 0 && (
               <button
-                type="button"
-                onClick={() => setMoreMenuOpen(!moreMenuOpen)}
-                className="p-2 hover:bg-subtle text-text-muted hover:text-text-main border border-border-subtle rounded-[2px] transition-colors"
-                title="更多项目操作"
+                onClick={() => {
+                  setNewProjectName(`BOM项目-${new Date().toLocaleDateString()}`);
+                  setSaveAsProjectModalOpen(true);
+                }}
+                className="px-2.5 py-1 text-xs font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-2xs flex items-center gap-1 transition-colors"
               >
-                <MoreVertical className="w-4 h-4" />
+                <FolderGit2 className="w-3.5 h-3.5" />
+                <span>保存为此工程</span>
               </button>
+            )}
 
-              {moreMenuOpen && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-surface border border-border-subtle rounded-[2px] shadow-lg z-30 py-1 text-xs divide-y divide-border-subtle">
-                  <div className="py-1">
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => {
-                        setMoreMenuOpen(false);
-                        handleUnlockAll();
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-text-muted hover:text-text-main hover:bg-subtle flex items-center gap-2"
-                    >
-                      <Unlock className="w-3.5 h-3.5 text-amber-600" />
-                      <span>释放项目全部锁定</span>
-                    </button>
-                  </div>
+            {/* 正式工程下的锁库与完工操作 */}
+            {!isFastBomMode && project && (
+              <>
+                {(project.totalPiecesLocked || 0) === 0 ? (
+                  <button
+                    onClick={handleLockStock}
+                    disabled={actionLoading}
+                    className="px-2.5 py-1 text-xs font-bold bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 hover:bg-amber-500/30 rounded-[2px] flex items-center gap-1 transition-colors"
+                    title="锁定当前可用库存，防止被其他工程占用"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>锁定库存</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleUnlockStock}
+                    disabled={actionLoading}
+                    className="px-2 py-1 text-xs font-bold bg-canvas text-text-muted border border-border-subtle hover:text-danger rounded-[2px] flex items-center gap-1 transition-colors"
+                    title="释放已锁定库存"
+                  >
+                    <Unlock className="w-3.5 h-3.5" />
+                    <span>释放锁库</span>
+                  </button>
+                )}
 
-                  <div className="py-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreMenuOpen(false);
-                        if (onDeleteProject) onDeleteProject(project.id);
-                      }}
-                      className="w-full px-3 py-1.5 text-left text-danger hover:bg-danger/10 flex items-center gap-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>删除此制作项目</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+                {project.status !== 'COMPLETED' && (
+                  <button
+                    onClick={handleCompleteProject}
+                    disabled={actionLoading}
+                    className="px-2.5 py-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] shadow-2xs flex items-center gap-1 transition-colors"
+                    title="制作完工并真正从库存中扣减消库"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>完工消库</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* 移动端切换 清单/2D沙盘 药丸 */}
+            <div className="flex md:hidden items-center border border-border-subtle rounded-[2px] p-0.5 bg-canvas">
+              <button
+                onClick={() => setMobileTab('LIST')}
+                className={cn(
+                  'px-2 py-0.5 text-xs font-bold rounded-[2px]',
+                  mobileTab === 'LIST' ? 'bg-text-main text-surface' : 'text-text-muted'
+                )}
+              >
+                清单
+              </button>
+              <button
+                onClick={() => setMobileTab('SANDBOX')}
+                className={cn(
+                  'px-2 py-0.5 text-xs font-bold rounded-[2px]',
+                  mobileTab === 'SANDBOX' ? 'bg-text-main text-surface' : 'text-text-muted'
+                )}
+              >
+                2D沙盘
+              </button>
             </div>
           </div>
         </div>
 
-        {/* 2. 核心工序流水线导航器 (Pipeline Stepper - 专业工规分段流水线，克制沉稳无彩色大框) */}
-        <div className="pt-2 border-t border-border-subtle">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5 p-1 bg-subtle/50 rounded-[3px] border border-border-subtle">
-            {/* 步骤 ①：配料准备 */}
-            <button
-              type="button"
-              onClick={() => setActiveStep('BOM')}
-              className={cn(
-                'px-3 py-2 rounded-[2px] text-left transition-all relative flex flex-col justify-between select-none',
-                activeStep === 'BOM'
-                  ? 'bg-surface text-text-main shadow-2xs border border-border-hover'
-                  : 'hover:bg-surface/70 text-text-muted hover:text-text-main border border-transparent'
-              )}
-            >
-              <div className="flex items-center justify-between text-xs sm:text-sm font-mono">
-                <span className={cn('flex items-center gap-1.5 font-bold', activeStep === 'BOM' ? 'text-accent font-black' : '')}>
-                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', activeStep === 'BOM' ? 'bg-accent' : 'bg-text-muted/40')} />
-                  ① 配料准备
-                </span>
-                <span className="text-[11px] font-mono px-1.5 py-0.2 bg-canvas rounded-[2px] border border-border-subtle text-text-muted font-bold">
-                  {project.items?.length || 0} 种
-                </span>
-              </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted font-medium truncate">
-                单板需求与规格清单
-              </div>
-            </button>
+        {/* 2. 工规 KPI 分段条：齐套率 + 取料打卡计数 + 货位覆盖 */}
+        <div className="flex items-center justify-between gap-3 text-xs font-mono bg-canvas px-3 py-1.5 border border-border-subtle rounded-[2px]">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-text-muted font-bold">现货齐套率:</span>
+              <span
+                className={cn(
+                  'font-black text-sm',
+                  readinessRate >= 100 ? 'text-emerald-600' : 'text-accent'
+                )}
+              >
+                {readinessRate}%
+              </span>
+              <span className="text-[11px] text-text-muted">
+                ({readyCount}/{totalCount} 项充足)
+              </span>
+            </div>
 
-            {/* 步骤 ②：现货锁库 */}
-            <button
-              type="button"
-              onClick={() => setActiveStep('LOCK')}
-              className={cn(
-                'px-3 py-2 rounded-[2px] text-left transition-all relative flex flex-col justify-between select-none',
-                activeStep === 'LOCK'
-                  ? 'bg-surface text-text-main shadow-2xs border border-border-hover'
-                  : 'hover:bg-surface/70 text-text-muted hover:text-text-main border border-transparent'
-              )}
-            >
-              <div className="flex items-center justify-between text-xs sm:text-sm font-mono">
-                <span className={cn('flex items-center gap-1.5 font-bold', activeStep === 'LOCK' ? 'text-accent font-black' : '')}>
-                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', activeStep === 'LOCK' ? 'bg-accent' : 'bg-text-muted/40')} />
-                  ② 现货锁库
-                </span>
-                <span className="text-[11px] font-mono px-1.5 py-0.2 bg-canvas rounded-[2px] border border-border-subtle text-text-main font-bold">
-                  已锁 {project.totalPiecesLocked || 0}
-                </span>
-              </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted font-medium truncate">
-                在库现货独占锁定
-              </div>
-            </button>
+            <span className="text-border-subtle">|</span>
 
-            {/* 步骤 ③：缺料补购 */}
-            <button
-              type="button"
-              onClick={() => setActiveStep('PROCURE')}
-              className={cn(
-                'px-3 py-2 rounded-[2px] text-left transition-all relative flex flex-col justify-between select-none',
-                activeStep === 'PROCURE'
-                  ? 'bg-surface text-text-main shadow-2xs border border-border-hover'
-                  : 'hover:bg-surface/70 text-text-muted hover:text-text-main border border-transparent'
-              )}
-            >
-              <div className="flex items-center justify-between text-xs sm:text-sm font-mono">
-                <span className={cn('flex items-center gap-1.5 font-bold', activeStep === 'PROCURE' ? 'text-accent font-black' : '')}>
-                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', activeStep === 'PROCURE' ? 'bg-accent' : 'bg-text-muted/40')} />
-                  ③ 缺料补购
-                </span>
-                <span className={cn('text-[11px] font-mono px-1.5 py-0.2 rounded-[2px] border font-bold', readiness >= 100 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-500/30' : 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-500/30')}>
-                  {readiness >= 100 ? '已齐套' : `缺 ${project.shortage_items_count || 0}`}
-                </span>
-              </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted font-medium truncate">
-                LCSC / Excel 采购单
-              </div>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <span className="text-text-muted font-bold">取料打卡:</span>
+              <span className="font-black text-sm text-text-main">
+                {pickedCount}/{totalCount}
+              </span>
+              <span className="text-[11px] text-text-muted">已就位</span>
+            </div>
+          </div>
 
-            {/* 步骤 ④：拣料完工 */}
+          <div className="flex items-center gap-2">
             <button
-              type="button"
-              onClick={() => setActiveStep('KITTING')}
-              className={cn(
-                'px-3 py-2 rounded-[2px] text-left transition-all relative flex flex-col justify-between select-none',
-                activeStep === 'KITTING'
-                  ? 'bg-surface text-text-main shadow-2xs border border-border-hover'
-                  : 'hover:bg-surface/70 text-text-muted hover:text-text-main border border-transparent'
-              )}
+              onClick={handleToggleSelectAllPicks}
+              className="text-[11px] font-bold text-accent hover:underline flex items-center gap-1"
             >
-              <div className="flex items-center justify-between text-xs sm:text-sm font-mono">
-                <span className={cn('flex items-center gap-1.5 font-bold', activeStep === 'KITTING' ? 'text-accent font-black' : '')}>
-                  <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', activeStep === 'KITTING' ? 'bg-accent' : 'bg-text-muted/40')} />
-                  ④ 拣料完工
-                </span>
-                <span className="text-[11px] font-mono px-1.5 py-0.2 bg-canvas rounded-[2px] border border-border-subtle text-text-muted font-bold">
-                  {totalCheckedCount}/{project.items?.length || 0}
-                </span>
-              </div>
-              <div className="text-[11px] mt-1 font-sans text-text-muted font-medium truncate">
-                按位拣料打卡与消库
-              </div>
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span>{pickedCount === totalCount ? '取消全取' : '全部打卡'}</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* 3. 步骤专属工作台与动作区 (当前聚焦的单一流程) */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden relative">
-        {/* ======================= 【步骤 ①：配料准备 (BOM)】 ======================= */}
-        {activeStep === 'BOM' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* 步骤工具条 */}
-            <div className="p-3 bg-surface border-b border-border-subtle flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <ClipboardList className="w-4 h-4 text-accent" />
-                <span className="font-bold text-xs sm:text-sm text-text-main">
-                  套料物料清单 ({project.items?.length || 0} 种)
-                </span>
-                <span className="text-xs text-text-muted hidden sm:inline">
-                  — 单板需备物料与用量
-                </span>
+      {/* 2. 主体工作区：中栏(物料清单与BOM草稿) + 右栏(常驻2D亚克力沙盘) */}
+      <div className="flex-1 flex min-h-0 overflow-hidden">
+        {/* 中栏：BOM录入 + 物料需求清单 */}
+        <div
+          className={cn(
+            'flex-1 flex flex-col min-h-0 bg-surface border-r border-border-subtle overflow-hidden',
+            mobileTab === 'SANDBOX' ? 'hidden md:flex' : 'flex'
+          )}
+        >
+          {/* A. 极速 BOM 录入框 (当在草稿比对模式且未解析，或随时展开) */}
+          {isFastBomMode && bomResults.length === 0 && (
+            <div className="p-4 bg-canvas/60 border-b border-border-subtle space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-black text-text-main">
+                  <ClipboardPaste className="w-4 h-4 text-accent" />
+                  <span>粘贴或导入 BOM 数据（即刻联动右侧 2D 亚克力收纳柜亮灯）</span>
+                </div>
+                <button
+                  onClick={() => setPasteText(SAMPLE_BOM_TEXT)}
+                  className="text-xs text-accent hover:underline font-mono font-bold flex items-center gap-1"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>填入立创EDA样例</span>
+                </button>
               </div>
 
-              <div className="flex items-center gap-2">
+              <textarea
+                rows={5}
+                value={pasteText}
+                onChange={(e) => setPasteText(e.target.value)}
+                placeholder="直接从立创EDA、Excel、Altium Designer等复制表格并在此处粘贴（支持制表符 Tab 分隔）..."
+                className="w-full bg-canvas border border-border-subtle rounded-[2px] p-2.5 font-mono text-xs text-text-main focus:outline-none focus:border-accent"
+              />
+
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
+                    }}
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 text-xs font-mono font-bold text-text-muted hover:text-text-main border border-border-subtle rounded-[2px] bg-canvas flex items-center gap-1.5"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>上传 Excel/CSV</span>
+                  </button>
+                  {fileName && <span className="text-xs font-mono text-text-muted">{fileName}</span>}
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-[2px] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors border shadow-2xs',
-                    isQuickAddOpen
-                      ? 'bg-accent text-white border-accent'
-                      : 'bg-accent/10 hover:bg-accent hover:text-white text-accent border-accent/20'
-                  )}
+                  onClick={() => handleParseAndCompareBomText()}
+                  disabled={parsingBom || comparingBom}
+                  className="px-4 py-1.5 text-xs font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-xs flex items-center gap-1.5"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>{isQuickAddOpen ? '收起录入' : '添加物料'}</span>
+                  {parsingBom || comparingBom ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span>立即解析并投射沙盘</span>
                 </button>
               </div>
             </div>
+          )}
 
-            {/* 内联极速录入栏 */}
-            {isQuickAddOpen && (
-              <form
-                onSubmit={handleQuickAddSubmit}
-                className="p-3.5 bg-surface border-b border-border-subtle shadow-xs space-y-3 shrink-0 animate-in slide-in-from-top duration-150"
+          {/* B. 清单搜索与过滤工具栏 */}
+          <div className="px-3 py-2 bg-canvas/40 border-b border-border-subtle flex items-center justify-between gap-2 shrink-0">
+            {/* 紧凑搜索框 */}
+            <div className="relative flex-1 max-w-xs">
+              <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+                placeholder="搜索型号、封装、货位、位号..."
+                className="w-full pl-8 pr-6 py-1 text-xs font-mono bg-canvas border border-border-subtle rounded-[2px] text-text-main placeholder:text-text-muted/60 focus:outline-none focus:border-accent"
+              />
+              {filterQuery && (
+                <button
+                  onClick={() => setFilterQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-main text-xs"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* 状态过滤胶囊 */}
+            <div className="flex items-center gap-1 text-xs font-mono">
+              <button
+                onClick={() => setStatusFilter('ALL')}
+                className={cn(
+                  'px-2 py-0.5 rounded-[2px] border transition-colors',
+                  statusFilter === 'ALL'
+                    ? 'bg-accent/10 text-accent font-bold border-accent/30'
+                    : 'bg-canvas text-text-muted border-border-subtle'
+                )}
               >
-                <div className="flex items-center justify-between">
-                  <div className="text-xs sm:text-sm font-bold text-text-main flex items-center gap-1.5">
-                    <Plus className="w-4 h-4 text-accent" />
-                    <span>就地添加元器件至套料清单</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsQuickAddOpen(false)}
-                    className="text-text-muted hover:text-text-main p-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+                全部({totalCount})
+              </button>
+              <button
+                onClick={() => setStatusFilter('SHORTAGE')}
+                className={cn(
+                  'px-2 py-0.5 rounded-[2px] border transition-colors',
+                  statusFilter === 'SHORTAGE'
+                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold border-amber-500/40'
+                    : 'bg-canvas text-text-muted border-border-subtle'
+                )}
+              >
+                缺料({totalCount - readyCount})
+              </button>
+              <button
+                onClick={() => setStatusFilter('SUFFICIENT')}
+                className={cn(
+                  'px-2 py-0.5 rounded-[2px] border transition-colors',
+                  statusFilter === 'SUFFICIENT'
+                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-bold border-emerald-500/40'
+                    : 'bg-canvas text-text-muted border-border-subtle'
+                )}
+              >
+                充足({readyCount})
+              </button>
+            </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 text-xs">
-                  <div className="sm:col-span-2 relative">
-                    <label className="block text-[11px] font-medium text-text-muted mb-1">
-                      物料规格 / 型号 * (输入即模糊联想工坊库存)
-                    </label>
-                    <input
-                      type="text"
-                      value={addPartName}
-                      onChange={(e) => handleSearchCandidates(e.target.value)}
-                      placeholder="例如: 0805 10kΩ, STM32F401, CH340C..."
-                      className="w-full px-2.5 py-1.5 bg-canvas border border-border-subtle rounded-[2px] text-text-main focus:outline-none focus:border-accent font-medium text-xs sm:text-sm"
-                      autoFocus
-                    />
-
-                    {searchCandidates.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-surface border border-border-subtle rounded-[2px] shadow-lg max-h-48 overflow-y-auto z-20 divide-y divide-border-subtle">
-                        {searchCandidates.map((c) => (
-                          <div
-                            key={c.id}
-                            onClick={() => handleSelectCandidate(c)}
-                            className="p-2 hover:bg-accent/10 cursor-pointer flex items-center justify-between text-xs transition-colors"
-                          >
-                            <div className="min-w-0 pr-2">
-                              <span className="font-bold text-text-main block truncate">{c.name}</span>
-                              <span className="text-[10px] text-text-muted font-mono truncate block">
-                                {c.category} · {c.package || '无封装'} · 存量: {c.quantity}件 · 货位: {c.location || '未入库'}
-                              </span>
-                            </div>
-                            <span className="text-accent font-mono text-xs shrink-0 font-bold">选择</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-medium text-text-muted mb-1">
-                      封装形式 (可选)
-                    </label>
-                    <input
-                      type="text"
-                      value={addPkg}
-                      onChange={(e) => setAddPkg(e.target.value)}
-                      placeholder="例如: 0805, SOP-8"
-                      className="w-full px-2.5 py-1.5 bg-canvas border border-border-subtle rounded-[2px] text-text-main focus:outline-none focus:border-accent font-mono text-xs sm:text-sm"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-medium text-text-muted mb-1">
-                      单板用量 * (全项目总需: {addUnitQty * (project.target_qty || 1)} 件)
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={addUnitQty}
-                      onChange={(e) => setAddUnitQty(parseInt(e.target.value, 10) || 1)}
-                      className="w-full px-2.5 py-1.5 bg-canvas border border-border-subtle rounded-[2px] text-text-main focus:outline-none focus:border-accent font-mono font-bold text-xs sm:text-sm"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-3">
-                    <label className="block text-[11px] font-medium text-text-muted mb-1">
-                      原理图位号 Designators (可选，逗号分隔)
-                    </label>
-                    <input
-                      type="text"
-                      value={addDesignators}
-                      onChange={(e) => setAddDesignators(e.target.value)}
-                      placeholder="例如: R1, R2, R5, C10..."
-                      className="w-full px-2.5 py-1.5 bg-canvas border border-border-subtle rounded-[2px] text-text-main focus:outline-none focus:border-accent font-mono text-xs sm:text-sm"
-                    />
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      type="submit"
-                      disabled={submittingAdd}
-                      className="w-full py-1.5 px-3 bg-accent hover:bg-accent-hover text-white font-bold rounded-[2px] transition-colors flex items-center justify-center gap-1.5 text-xs sm:text-sm h-[34px]"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>确认录入</span>
-                    </button>
-                  </div>
-                </div>
-              </form>
+            {/* 内联快速加料按钮（正式工程下可用） */}
+            {!isFastBomMode && project && (
+              <button
+                onClick={() => setIsQuickAddOpen(!isQuickAddOpen)}
+                className="px-2 py-1 text-xs font-bold text-accent hover:bg-accent/10 border border-accent/30 rounded-[2px] flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>追加物料</span>
+              </button>
             )}
+          </div>
 
-            {/* 物料清单明细表格 */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {!project.items || project.items.length === 0 ? (
-                <div className="py-20 text-center text-xs sm:text-sm text-text-muted space-y-3 bg-surface border border-dashed border-border-subtle rounded-md">
-                  <div>该项目暂无元器件清单。请点击上方「添加物料」开始录入。</div>
-                  <button
-                    type="button"
-                    onClick={() => setIsQuickAddOpen(true)}
-                    className="px-4 py-2 bg-accent text-white rounded-[2px] text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 shadow-2xs"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>立即录入第一批物料</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="bg-surface border border-border-subtle rounded-[2px] overflow-hidden shadow-xs">
-                  <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                    <thead>
-                      <tr className="bg-canvas border-b border-border-subtle text-text-muted font-bold font-mono">
-                        <th className="py-3 px-4 w-[28%]">物料规格 / 型号</th>
-                        <th className="py-3 px-3 w-[15%]">封装形式</th>
-                        <th className="py-3 px-3 w-[20%]">原理图位号</th>
-                        <th className="py-3 px-3 w-[18%] text-center">需求用量 (单板 x 套数)</th>
-                        <th className="py-3 px-4 w-[19%] text-right">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border-subtle">
-                      {project.items.map((it) => (
-                        <tr key={it.id} className="hover:bg-surface-hover/70 transition-colors">
-                          <td className="py-3 px-4 font-bold text-text-main align-middle">
-                            <div className="leading-snug">{it.part_name}</div>
-                            {it.comp_lcsc && (
-                              <div className="text-xs text-accent font-mono mt-0.5 font-semibold">
-                                立创: {it.comp_lcsc}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 font-mono text-text-muted align-middle">
-                            {it.package || '-'}
-                          </td>
-                          <td className="py-3 px-3 font-mono text-text-muted align-middle break-all">
-                            {it.designators || '-'}
-                          </td>
-                          <td className="py-3 px-3 text-center align-middle font-mono">
-                            <div className="font-bold text-text-main text-sm">
-                              {it.total_demand_qty} 件
-                            </div>
-                            <div className="text-xs text-text-muted">
-                              (单板: {it.unit_demand_qty})
-                            </div>
-                          </td>
-                          <td className="py-3 px-4 text-right align-middle">
-                            {!isCompleted && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(it.id)}
-                                className="text-danger hover:underline text-xs flex items-center gap-1 ml-auto font-mono"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>移除</span>
-                              </button>
-                            )}
-                          </td>
-                        </tr>
+          {/* C. 内联快速加料表单 */}
+          {isQuickAddOpen && (
+            <div className="p-3 bg-canvas border-b border-border-subtle space-y-2 animate-in slide-in-from-top duration-150">
+              <div className="text-xs font-black text-text-main flex items-center justify-between">
+                <span>追加单项物料到当前工程</span>
+                <button
+                  onClick={() => setIsQuickAddOpen(false)}
+                  className="text-text-muted hover:text-text-main"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                <div className="sm:col-span-2 relative">
+                  <input
+                    type="text"
+                    value={addPartName}
+                    onChange={(e) => handleSearchCandidates(e.target.value)}
+                    placeholder="输入物料型号/规格（自动联想库存）..."
+                    className="w-full bg-surface border border-border-subtle rounded-[2px] px-2 py-1 text-xs font-mono text-text-main focus:outline-none focus:border-accent"
+                  />
+                  {searchCandidates.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-surface border border-border-subtle rounded-[2px] shadow-md z-30 max-h-40 overflow-y-auto divide-y divide-border-subtle text-xs font-mono">
+                      {searchCandidates.map((c) => (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setSelectedComp(c);
+                            setAddPartName(c.name);
+                            setAddPkg(c.package || '');
+                            setSearchCandidates([]);
+                          }}
+                          className="p-1.5 hover:bg-subtle cursor-pointer flex items-center justify-between"
+                        >
+                          <span className="font-bold text-text-main">{c.name}</span>
+                          <span className="text-text-muted text-[11px]">
+                            {c.package} | 存{c.quantity}件 | {c.location || '无货位'}
+                          </span>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        )}
 
-        {/* ======================= 【步骤 ②：现货锁库 (LOCK)】 ======================= */}
-        {activeStep === 'LOCK' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* 步骤工具条 */}
-            <div className="p-3 bg-surface border-b border-border-subtle flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-2">
-                <Lock className="w-4 h-4 text-amber-600" />
-                <span className="font-bold text-xs sm:text-sm text-text-main">
-                  工坊在库现货匹配与预锁
-                </span>
-                <span className="text-xs text-text-muted hidden sm:inline">
-                  — 防止物料被其他日常项目挪用
-                </span>
-              </div>
+                <div>
+                  <input
+                    type="text"
+                    value={addPkg}
+                    onChange={(e) => setAddPkg(e.target.value)}
+                    placeholder="封装 (如 0805)"
+                    className="w-full bg-surface border border-border-subtle rounded-[2px] px-2 py-1 text-xs font-mono text-text-main focus:outline-none focus:border-accent"
+                  />
+                </div>
 
-              {!isCompleted && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={1}
+                    value={addUnitQty}
+                    onChange={(e) => setAddUnitQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    placeholder="单板用量"
+                    className="w-16 bg-surface border border-border-subtle rounded-[2px] px-2 py-1 text-xs font-mono text-text-main font-bold focus:outline-none focus:border-accent text-center"
+                  />
                   <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={handleLockAll}
-                    className="px-3.5 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-[2px] text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                    onClick={handleQuickAddSubmit}
+                    disabled={submittingAdd}
+                    className="flex-1 py-1 bg-accent text-white text-xs font-bold rounded-[2px] hover:bg-accent-hover"
                   >
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>智能一键锁库</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={handleUnlockAll}
-                    className="px-3 py-1.5 bg-subtle hover:bg-surface-hover border border-border-subtle rounded-[2px] text-xs sm:text-sm font-medium text-text-muted hover:text-text-main flex items-center gap-1.5 transition-colors"
-                  >
-                    <Unlock className="w-3.5 h-3.5" />
-                    <span>释放全部</span>
+                    确认添加
                   </button>
                 </div>
-              )}
-            </div>
-
-            {/* 锁定分析表格 */}
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="bg-surface border border-border-subtle rounded-[2px] overflow-hidden shadow-xs">
-                <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                  <thead>
-                    <tr className="bg-canvas border-b border-border-subtle text-text-muted font-bold font-mono">
-                      <th className="py-3 px-4 w-[28%]">物料型号</th>
-                      <th className="py-3 px-3 w-[16%]">需求总量</th>
-                      <th className="py-3 px-3 w-[18%]">手头现货存量</th>
-                      <th className="py-3 px-3 w-[20%] text-center">锁定状态</th>
-                      <th className="py-3 px-4 w-[18%] text-right">单项管理</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border-subtle font-mono">
-                    {project.items?.map((it) => {
-                      const isLockedFull = it.is_ready;
-
-                      return (
-                        <tr key={it.id} className="hover:bg-surface-hover/70 transition-colors">
-                          <td className="py-3 px-4 font-bold text-text-main align-middle font-sans">
-                            <div>{it.part_name}</div>
-                            <div className="text-xs text-text-muted font-mono">{it.package || '-'}</div>
-                          </td>
-                          <td className="py-3 px-3 align-middle font-bold text-text-main">
-                            {it.total_demand_qty} 件
-                          </td>
-                          <td className="py-3 px-3 align-middle text-text-muted">
-                            {it.comp_total_stock !== undefined ? `${it.comp_total_stock} 件` : '未入库'}
-                          </td>
-                          <td className="py-3 px-3 align-middle text-center">
-                            {isLockedFull ? (
-                              <span className="inline-block px-2.5 py-0.5 rounded-[2px] text-xs font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                                🟩 现货已锁足 ({it.locked_qty}件)
-                              </span>
-                            ) : it.locked_qty > 0 ? (
-                              <span className="inline-block px-2.5 py-0.5 rounded-[2px] text-xs font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                                🟨 部分锁定 ({it.locked_qty}/{it.total_demand_qty})
-                              </span>
-                            ) : (
-                              <span className="inline-block px-2.5 py-0.5 rounded-[2px] text-xs font-bold bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
-                                🟥 未锁定 (缺 {it.total_demand_qty}件)
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-4 text-right align-middle">
-                            {it.locked_qty > 0 && !isCompleted ? (
-                              <button
-                                type="button"
-                                onClick={() => handleUnlockSingle(it.component_id)}
-                                className="text-amber-600 dark:text-amber-400 hover:underline text-xs"
-                              >
-                                释放该项
-                              </button>
-                            ) : (
-                              <span className="text-text-muted/40 text-xs">-</span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ======================= 【步骤 ③：缺料补购 (PROCURE)】 ======================= */}
-        {activeStep === 'PROCURE' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* 步骤工具条 */}
-            <div className="p-3 bg-surface border-b border-border-subtle flex items-center justify-between gap-3 shrink-0 flex-wrap">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4 text-rose-600" />
-                <span className="font-bold text-xs sm:text-sm text-text-main">
-                  缺料采购补给
-                </span>
-                <span className="text-xs text-text-muted">
-                  — 快速提取并导出缺料，方便立创或淘宝一键加车
+          {/* D. 物料需求列表 (紧凑工规列表，点击即联动右侧沙盘) */}
+          <div className="flex-1 overflow-y-auto divide-y divide-border-subtle">
+            {filteredMaterials.length === 0 ? (
+              <div className="py-16 text-center text-xs text-text-muted flex flex-col items-center gap-2">
+                <Box className="w-8 h-8 text-border-hover stroke-[1.5]" />
+                <span className="font-bold">
+                  {isFastBomMode && bomResults.length === 0
+                    ? '请在上方粘贴或上传 BOM 数据，即时开启 2D 沙盘寻料'
+                    : '未找到匹配的物料项目'}
                 </span>
               </div>
-
-              {/* 一键快捷复制工具 */}
-              {purchaseData?.items && purchaseData.items.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const lcscList = purchaseData.items
-                        .filter((i: any) => i.comp_lcsc)
-                        .map((i: any) => i.comp_lcsc)
-                        .join(',');
-                      navigator.clipboard.writeText(lcscList);
-                      showToast('✔ 已复制立创零件编号列表！可直接在嘉立创BOM导入中粘贴', 'success');
-                    }}
-                    className="px-3 py-1.5 bg-canvas hover:bg-subtle border border-border-subtle rounded-[2px] text-xs font-mono font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-accent" />
-                    <span>复制立创编号</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const tsv = [
-                        ['物料型号', '封装', '缺料数量', '单板用量', '立创编号'].join('\t'),
-                        ...purchaseData.items.map((i: any) =>
-                          [i.part_name, i.package || '', i.shortage_qty, i.unit_demand_qty, i.comp_lcsc || ''].join('\t')
-                        ),
-                      ].join('\n');
-                      navigator.clipboard.writeText(tsv);
-                      showToast('✔ 已复制 TSV 采购表格！可直接粘贴至 Excel/在线文档', 'success');
-                    }}
-                    className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 rounded-[2px] text-xs font-mono font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>复制 Excel 采购单</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 缺料清单主视图 */}
-            <div className="flex-1 overflow-y-auto p-4">
-              {loadingPurchase ? (
-                <div className="py-20 text-center text-xs sm:text-sm text-text-muted flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-accent" />
-                  <span>正在计算当前缺料缺口...</span>
-                </div>
-              ) : !purchaseData || !purchaseData.items || purchaseData.items.length === 0 ? (
-                <div className="py-24 text-center text-text-muted space-y-3 bg-surface border border-dashed border-emerald-500/40 rounded-md">
-                  <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 mx-auto flex items-center justify-center">
-                    <CheckCheck className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-bold text-text-main">太棒了！现货完全齐套</h4>
-                    <p className="text-xs sm:text-sm text-text-muted mt-1">
-                      本项目所需的所有元器件均已成功在工坊现货中锁定，无需额外补购！
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveStep('KITTING')}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-[2px] text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 shadow-2xs"
-                  >
-                    <span>直接进入 ④ 拣料与完工</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-[2px] text-rose-700 dark:text-rose-400 font-mono text-xs flex items-center justify-between">
-                    <span>
-                      共发现 <strong>{purchaseData.items.length}</strong> 种元器件存在缺口，采购到货入库后可自动锁定。
-                    </span>
-                  </div>
-
-                  <div className="bg-surface border border-border-subtle rounded-[2px] overflow-hidden shadow-xs">
-                    <table className="w-full text-left text-xs sm:text-sm border-collapse">
-                      <thead>
-                        <tr className="bg-canvas border-b border-border-subtle text-text-muted font-bold font-mono">
-                          <th className="py-3 px-4 w-[35%]">缺料规格 / 型号</th>
-                          <th className="py-3 px-3 w-[18%]">封装</th>
-                          <th className="py-3 px-3 w-[18%] text-center">缺口数量</th>
-                          <th className="py-3 px-4 w-[29%] text-right">推荐采购参考</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border-subtle">
-                        {purchaseData.items.map((item: any, idx: number) => (
-                          <tr key={idx} className="hover:bg-surface-hover/70 transition-colors">
-                            <td className="py-3 px-4 font-bold text-text-main align-middle leading-snug">
-                              {item.part_name}
-                            </td>
-                            <td className="py-3 px-3 font-mono text-text-muted align-middle">
-                              {item.package || '-'}
-                            </td>
-                            <td className="py-3 px-3 text-center align-middle font-mono">
-                              <span className="font-black text-rose-600 dark:text-rose-400 text-sm">
-                                需购 {item.shortage_qty} 件
-                              </span>
-                              <div className="text-[11px] text-text-muted">
-                                (单板: {item.unit_demand_qty})
-                              </div>
-                            </td>
-                            <td className="py-3 px-4 text-right align-middle font-mono">
-                              {item.comp_lcsc ? (
-                                <span className="font-bold text-accent">
-                                  立创: {item.comp_lcsc}
-                                </span>
-                              ) : (
-                                <span className="text-text-muted/60">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ======================= 【步骤 ④：拣料完工 (KITTING)】 ======================= */}
-        {activeStep === 'KITTING' && (
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* 步骤工具条 */}
-            <div className="p-3 bg-surface border-b border-border-subtle flex items-center justify-between gap-3 shrink-0 flex-wrap">
-              <div className="flex items-center gap-2">
-                <Box className="w-4 h-4 text-emerald-600" />
-                <span className="font-bold text-xs sm:text-sm text-text-main">
-                  按物理货位拣料打卡清单
-                </span>
-                <span className="text-xs text-text-muted font-mono hidden sm:inline">
-                  — 已取 {totalCheckedCount}/{project.items?.length || 0} 项
-                </span>
-              </div>
-
-              {!isCompleted && (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={actionLoading}
-                    onClick={handleCompleteProject}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-[2px] text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
-                    title="全部物料已焊接/装配完毕，正式从在库库存扣减"
-                  >
-                    <Award className="w-4 h-4" />
-                    <span>完工正式消库</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 按货位分组清单 */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-              {kittingGroups.map((group) => {
-                const groupAllDone = group.checkedCount === group.totalCount && group.totalCount > 0;
+            ) : (
+              filteredMaterials.map((mat) => {
+                const isFocused = String(focusedItemId) === String(mat.id);
+                const isShortage = mat.status === 'SHORTAGE';
+                const hasLocation = !!mat.location;
 
                 return (
                   <div
-                    key={group.location}
-                    className="bg-surface border border-border-subtle rounded-[2px] overflow-hidden shadow-xs"
+                    key={mat.id}
+                    onClick={() => setFocusedItemId(mat.id)}
+                    className={cn(
+                      'px-3 py-2 transition-colors cursor-pointer group flex items-center justify-between gap-2.5',
+                      isFocused ? 'bg-accent/[0.08]' : 'hover:bg-subtle/60'
+                    )}
                   >
-                    {/* 货位标题栏 */}
-                    <div className="p-3 bg-canvas/60 border-b border-border-subtle flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-accent shrink-0" />
-                        <h4 className="font-bold text-sm text-text-main font-mono">
-                          {group.location}
-                        </h4>
-                        <span className="text-xs font-mono px-2 py-0.5 bg-subtle text-text-muted rounded-[2px] border border-border-subtle">
-                          {group.totalCount} 种物料 · 需取 {group.totalDemandPieces} 件
-                        </span>
-                      </div>
+                    {/* 左侧：打卡勾选 + 状态微灯 + 物料核心信息 */}
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      {/* 打卡复选框 */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleTogglePick(mat.id);
+                        }}
+                        className={cn(
+                          'p-0.5 rounded-[2px] border transition-colors shrink-0',
+                          mat.isPicked
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-canvas text-text-muted/40 border-border-subtle hover:border-accent'
+                        )}
+                        title={mat.isPicked ? '已取料' : '点击打卡'}
+                      >
+                        <Check className="w-3.5 h-3.5 stroke-[2.8]" />
+                      </button>
 
-                      <span className="text-xs font-mono font-medium text-text-muted">
-                        已取: {group.checkedCount}/{group.totalCount}
-                      </span>
+                      {/* 充足/缺料指示微灯 */}
+                      <span
+                        className={cn(
+                          'w-2 h-2 rounded-full shrink-0 ring-2',
+                          mat.isPicked
+                            ? 'bg-emerald-600 ring-emerald-600/20'
+                            : isShortage
+                            ? 'bg-amber-500 ring-amber-500/20'
+                            : 'bg-emerald-500 ring-emerald-500/20'
+                        )}
+                      />
+
+                      {/* 物料主要信息 */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              'text-xs font-black truncate leading-snug',
+                              mat.isPicked
+                                ? 'line-through text-text-muted'
+                                : isFocused
+                                ? 'text-accent'
+                                : 'text-text-main'
+                            )}
+                            title={mat.name}
+                          >
+                            {mat.name}
+                          </span>
+
+                          {mat.package && (
+                            <span className="px-1.5 py-0.2 bg-canvas border border-border-subtle text-[11px] font-mono text-text-muted rounded-[2px] shrink-0 font-bold">
+                              {mat.package}
+                            </span>
+                          )}
+
+                          {mat.designators && (
+                            <span
+                              className="text-[11px] font-mono text-text-muted truncate max-w-[120px]"
+                              title={mat.designators}
+                            >
+                              [{mat.designators}]
+                            </span>
+                          )}
+                        </div>
+
+                        {/* 第二行：需求用量标尺 */}
+                        <div className="flex items-center gap-2 text-[11px] font-mono text-text-muted mt-0.5">
+                          <span>
+                            需:{' '}
+                            <strong className="text-text-main font-bold">
+                              {mat.demandQty} 件
+                            </strong>
+                          </span>
+                          <span>·</span>
+                          <span>
+                            存:{' '}
+                            <strong
+                              className={cn(
+                                'font-bold',
+                                isShortage ? 'text-amber-600 dark:text-amber-400' : 'text-text-main'
+                              )}
+                            >
+                              {mat.stockQty ?? 0} 件
+                            </strong>
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* 组内物料列表 */}
-                    <div className="divide-y divide-border-subtle">
-                      {group.items.map((it) => {
-                        const isChecked = !!checkedItems[it.id];
+                    {/* 右侧：物理货位徽标 (杀手级交互：点击直达 2D 亚克力对应抽屉) */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {hasLocation ? (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFocusedItemId(mat.id);
+                          }}
+                          className={cn(
+                            'px-2 py-1 rounded-[2px] font-mono text-xs font-black flex items-center gap-1 border transition-all cursor-pointer shadow-2xs',
+                            isFocused
+                              ? 'bg-accent text-white border-accent scale-105'
+                              : 'bg-accent/10 text-accent border-accent/30 hover:bg-accent/20'
+                          )}
+                          title="点击在右侧 2D 沙盘中高亮定位抽屉"
+                        >
+                          <Box className="w-3 h-3" />
+                          <span>{mat.location}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] font-mono text-text-muted/60 px-1.5 py-0.5 border border-dashed border-border-subtle rounded-[2px]">
+                          未入柜
+                        </span>
+                      )}
 
-                        return (
-                          <div
-                            key={it.id}
-                            onClick={() => toggleCheckItem(it.id)}
-                            className={cn(
-                              'p-3 flex items-center justify-between gap-3 cursor-pointer select-none transition-colors',
-                              isChecked ? 'bg-emerald-500/[0.04]' : 'hover:bg-surface-hover/60'
-                            )}
-                          >
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              {isChecked ? (
-                                <CheckSquare className="w-5 h-5 text-emerald-600 shrink-0" />
-                              ) : (
-                                <Square className="w-5 h-5 text-text-muted shrink-0" />
-                              )}
-
-                              <div className="min-w-0 flex-1">
-                                <div className={cn('text-sm font-bold text-text-main truncate', isChecked && 'line-through text-text-muted')}>
-                                  {it.part_name}
-                                </div>
-                                <div className="text-xs text-text-muted font-mono mt-0.5 truncate">
-                                  封装: {it.package || '-'} · 位号: {it.designators || '未标'}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="text-right font-mono shrink-0">
-                              <div className="text-sm font-black text-accent">
-                                需取: {it.total_demand_qty} 件
-                              </div>
-                              <div className="text-[11px] text-text-muted">
-                                (单板 x{it.unit_demand_qty})
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
+                      {/* 正式项目下删除项 */}
+                      {!isFastBomMode && project && (
+                        <button
+                          onClick={(e) => handleRemoveItem(mat.id as number, e)}
+                          className="p-1 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="从项目中删除"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              })
+            )}
           </div>
-        )}
+        </div>
+
+        {/* 右栏：常驻 2D 亚克力收纳柜实体沙盘 (核心视觉枢纽) */}
+        <div
+          className={cn(
+            'w-full md:w-[460px] lg:w-[500px] xl:w-[540px] flex flex-col min-h-0 bg-canvas overflow-hidden shrink-0',
+            mobileTab === 'LIST' ? 'hidden md:flex' : 'flex'
+          )}
+        >
+          <KittingBoxSandbox
+            materials={currentMaterials}
+            focusedMaterialId={focusedItemId}
+            onSelectMaterial={(id) => setFocusedItemId(id)}
+            onTogglePicked={(id, nextPicked) => handleTogglePick(id, nextPicked)}
+            shortages={shortages}
+            onNavigateToBoxManagement={(boxName) => onNavigateToBoxes?.(boxName)}
+          />
+        </div>
       </div>
+
+      {/* 极速 BOM 转存正式工程弹窗 */}
+      <Modal
+        isOpen={saveAsProjectModalOpen}
+        onClose={() => setSaveAsProjectModalOpen(false)}
+        title="保存为硬件制作工程"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4 text-xs sm:text-sm">
+          <div>
+            <label className="block text-text-muted mb-1 font-semibold">工程名称 *</label>
+            <input
+              type="text"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder="例如: 智能温湿度传感器 v1.2"
+              className="w-full bg-canvas border border-border-subtle rounded-[2px] px-3 py-2 text-xs sm:text-sm text-text-main focus:outline-none focus:border-accent"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="block text-text-muted mb-1 font-semibold">工程说明</label>
+            <textarea
+              rows={2}
+              value={newProjectDesc}
+              onChange={(e) => setNewProjectDesc(e.target.value)}
+              placeholder="输入项目版本、打样批次等备注信息..."
+              className="w-full bg-canvas border border-border-subtle rounded-[2px] p-2 text-xs text-text-main focus:outline-none focus:border-accent resize-none"
+            />
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="autoLock"
+              checked={autoLockStock}
+              onChange={(e) => setAutoLockStock(e.target.checked)}
+              className="rounded"
+            />
+            <label htmlFor="autoLock" className="text-xs font-semibold text-text-main cursor-pointer">
+              创建后自动锁定可用现货库存（防止被后续项目占用）
+            </label>
+          </div>
+
+          <button
+            onClick={handleSaveAsOfficialProject}
+            disabled={actionLoading}
+            className="w-full py-2.5 bg-accent hover:bg-accent-hover text-white font-bold text-xs sm:text-sm rounded-[2px] shadow-xs transition-colors flex items-center justify-center gap-1.5"
+          >
+            {actionLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <FolderGit2 className="w-4 h-4" />}
+            <span>确认保存并进入正式工程</span>
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

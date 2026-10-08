@@ -10,10 +10,9 @@ interface MobileBottomNavProps {
 
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange }) => {
   const tabs = [
-    { key: 'inventory', label: '我的库存', icon: Package },
     { key: 'boxes', label: '物理收纳', icon: Layers },
-    { key: 'bom', label: 'BOM比对', icon: FileSpreadsheet },
-    { key: 'projects', label: '制作项目', icon: Hammer },
+    { key: 'projects', label: '工程与BOM', icon: Hammer },
+    { key: 'inventory', label: '我的库存', icon: Package },
   ] as const;
 
   const handleSelect = (key: ActiveTab) => {

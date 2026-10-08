@@ -14,7 +14,15 @@ import { BoxesView } from './views/BoxesView';
 import { ProjectsView } from './views/ProjectsView';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('inventory');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('boxes');
+
+  React.useEffect(() => {
+    const handleNavToBox = () => {
+      setActiveTab('boxes');
+    };
+    window.addEventListener('GLOBAL_NAVIGATE_TO_BOX', handleNavToBox);
+    return () => window.removeEventListener('GLOBAL_NAVIGATE_TO_BOX', handleNavToBox);
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col bg-canvas text-text-main pb-20 md:pb-6 transition-colors">
@@ -23,10 +31,9 @@ export const App: React.FC = () => {
 
       {/* 主视图渲染 */}
       <main className="flex-1">
-        {activeTab === 'inventory' && <InventoryView />}
         {activeTab === 'boxes' && <BoxesView />}
-        {activeTab === 'bom' && <BomView />}
-        {activeTab === 'projects' && <ProjectsView />}
+        {(activeTab === 'projects' || activeTab === 'bom') && <ProjectsView />}
+        {activeTab === 'inventory' && <InventoryView />}
       </main>
 
       {/* 移动端原生触感底部导航栏 */}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { BoxGridSlot, BoxComponentDetail } from '../../types/box';
 import { Plus, Target } from 'lucide-react';
+import { cn } from '../../lib/utils';
 
 interface AcrylicDrawerCellProps {
   slotItem: BoxGridSlot;
@@ -8,6 +9,9 @@ interface AcrylicDrawerCellProps {
   isSearchMatch?: boolean;
   isSearchDimmed?: boolean;
   isAssignTarget?: boolean;
+  kittingStatus?: 'SUFFICIENT' | 'SHORTAGE' | 'SUBSTITUTE' | 'FOCUSED' | null;
+  kittingDemand?: number;
+  isPicked?: boolean;
   onClick: () => void;
 }
 
@@ -17,6 +21,9 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
   isSearchMatch = false,
   isSearchDimmed = false,
   isAssignTarget = false,
+  kittingStatus = null,
+  kittingDemand = 0,
+  isPicked = false,
   onClick,
 }) => {
   const comp: BoxComponentDetail | undefined = slotItem.components[0];
@@ -38,8 +45,19 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
           ? 'bg-surface hover:bg-surface-hover border-border-subtle shadow-xs hover:border-border-hover'
           : 'bg-canvas/80 hover:bg-surface border-dashed border-border-subtle hover:border-accent'
       } ${
+        // 寻料沙盘亮灯指示环 (核心发光特效)
+        kittingStatus === 'FOCUSED'
+          ? 'ring-3 ring-accent border-accent bg-accent/20 scale-[1.02] shadow-md z-20'
+          : kittingStatus === 'SUFFICIENT'
+          ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-500/10 shadow-2xs'
+          : kittingStatus === 'SHORTAGE'
+          ? 'ring-2 ring-amber-500 border-amber-500 bg-amber-500/10 shadow-2xs'
+          : kittingStatus === 'SUBSTITUTE'
+          ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/10 shadow-2xs'
+          : ''
+      } ${
         // 激活选中态
-        isSelected
+        isSelected && !kittingStatus
           ? 'ring-2 ring-accent border-accent bg-accent/[0.08] shadow-sm z-10'
           : ''
       } ${
@@ -59,7 +77,7 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
       {/* 顶部亚克力拉手微槽模拟 (加粗饱满，凸显物理手感) */}
       <div className="absolute top-1 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-border-hover/60 group-hover:bg-accent/60 transition-colors pointer-events-none" />
 
-      {/* 第一行：坐标工牌 + 数量标尺 (加粗大字号，对比鲜明) */}
+      {/* 第一行：坐标工牌 + 数量标尺 + 寻料打卡标牌 */}
       <div className="flex items-center justify-between gap-1 pt-1 mb-1">
         {/* 坐标标识 */}
         <span
@@ -67,13 +85,33 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
             isOccupied
               ? 'bg-canvas text-text-main border-border-subtle'
               : 'bg-subtle text-text-muted border-border-subtle/80'
-          } ${isSelected ? 'text-accent border-accent/60 bg-white dark:bg-canvas' : ''}`}
+          } ${isSelected || kittingStatus === 'FOCUSED' ? 'text-accent border-accent/60 bg-white dark:bg-canvas' : ''}`}
         >
           {slotItem.slot}
         </span>
 
-        {/* 数量标尺 */}
-        {isOccupied ? (
+        {/* 数量与寻料需求标尺 */}
+        {kittingStatus ? (
+          <div className="flex items-center gap-1 font-mono text-[11px] font-black">
+            {isPicked ? (
+              <span className="bg-emerald-600 text-white px-1.5 py-0.2 rounded-[2px] shadow-2xs">
+                ✔ 已取
+              </span>
+            ) : (
+              <span className={cn(
+                'px-1.5 py-0.2 rounded-[2px] border',
+                kittingStatus === 'SUFFICIENT'
+                  ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                  : kittingStatus === 'SHORTAGE'
+                  ? 'bg-amber-500/20 text-amber-700 dark:text-amber-400 border-amber-500/40'
+                  : 'bg-blue-500/20 text-blue-700 dark:text-blue-400 border-blue-500/40'
+              )}>
+                需 {kittingDemand}
+              </span>
+            )}
+            <span className="text-text-muted text-[10px]">存{comp?.quantity || 0}</span>
+          </div>
+        ) : isOccupied ? (
           <span className="font-mono text-xs font-black text-accent bg-accent/15 px-2 py-0.5 rounded-[2px] leading-none shrink-0 border border-accent/30">
             {comp.quantity}
             <span className="text-[10px] font-bold text-text-muted ml-0.5">件</span>

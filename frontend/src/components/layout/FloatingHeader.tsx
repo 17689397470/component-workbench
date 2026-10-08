@@ -17,7 +17,7 @@ import { cn } from '../../lib/utils';
 import { Modal } from '../ui/Modal';
 import QRCode from 'qrcode';
 
-export type ActiveTab = 'inventory' | 'boxes' | 'bom' | 'projects';
+export type ActiveTab = 'boxes' | 'projects' | 'inventory' | 'bom';
 
 interface FloatingHeaderProps {
   activeTab: ActiveTab;
@@ -42,10 +42,9 @@ export const FloatingHeader: React.FC<FloatingHeaderProps> = ({ activeTab, onTab
   };
 
   const navItems = [
-    { key: 'inventory', label: '我的库存', icon: Package },
     { key: 'boxes', label: '物理收纳', icon: Layers },
-    { key: 'bom', label: 'BOM 比对', icon: FileSpreadsheet },
-    { key: 'projects', label: '制作项目', icon: Hammer },
+    { key: 'projects', label: '工程与 BOM', icon: Hammer },
+    { key: 'inventory', label: '我的库存', icon: Package },
   ] as const;
 
   return (
