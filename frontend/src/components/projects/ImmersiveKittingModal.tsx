@@ -26,6 +26,40 @@ import {
 import { cn } from '../../lib/utils';
 import { KittingMaterial } from './KittingBoxSandbox';
 
+// 解析位置字符串中的收纳盒名与具体抽屉号
+export const parseLocationInfo = (location: string | undefined | null) => {
+  if (!location) {
+    return { boxName: '', slot: null, isLoose: true };
+  }
+  const clean = location.trim();
+  // 1. 优先匹配括号内：如 "桌底收纳箱A (B2)" 或 "A (1-03)"
+  const bracketMatch = clean.match(/^(.+?)\s*\(([^)]+)\)$/);
+  if (bracketMatch) {
+    return {
+      boxName: bracketMatch[1].trim(),
+      slot: bracketMatch[2].trim(),
+      isLoose: false,
+    };
+  }
+
+  // 2. 匹配 "收纳盒名 抽屉号" 或 "收纳盒名-抽屉号" (如 "默认电阻盒 1-03" 或 "A-1-03")
+  const sepMatch = clean.match(/^(.+?)[-\s]+([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)$/);
+  if (sepMatch) {
+    return {
+      boxName: sepMatch[1].trim(),
+      slot: sepMatch[2].trim(),
+      isLoose: false,
+    };
+  }
+
+  // 3. 仅有收纳盒名，无具体抽屉号 (盒内散料)
+  return {
+    boxName: clean,
+    slot: null,
+    isLoose: true,
+  };
+};
+
 interface ImmersiveKittingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -185,7 +219,7 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
     return boxes.find((b) => b.name === activeBoxName) || boxes[0] || null;
   }, [boxes, activeBoxName]);
 
-  // 5. 建立格位 -> 物料映射
+  // 5. 建立格位 -> 物料映射 (双重高精度匹配)
   const slotToMaterialMap = useMemo(() => {
     const map = new Map<string, KittingMaterial>();
     if (!gridData) return map;
@@ -201,15 +235,11 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
         }
       }
 
-      // 匹配方式二：基于 location 文本中包含的 slot 编号
-      const loc = (mat.location || '').trim();
-      if (loc) {
+      // 匹配方式二：基于解析出的抽屉编号 (支持括号 B2、破折号 1-03 等)
+      const { slot } = parseLocationInfo(mat.location);
+      if (slot) {
         for (const slotItem of gridData.grid) {
-          if (
-            loc.endsWith(slotItem.slot) ||
-            loc.includes(` ${slotItem.slot}`) ||
-            loc.includes(`-${slotItem.slot}`)
-          ) {
+          if (slotItem.slot.toLowerCase() === slot.toLowerCase()) {
             map.set(slotItem.slot, mat);
             return;
           }
@@ -434,10 +464,31 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
         <div className="px-4 py-3 bg-surface/90 border-b-2 border-accent/40 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-sm">
           <div className="flex items-center gap-3 min-w-0">
             {/* 目标抽屉超大工牌 */}
-            <div className="px-3.5 py-1.5 bg-accent text-white font-mono font-black text-xl sm:text-2xl rounded-[2px] shadow-sm tracking-tight flex items-center gap-1.5 shrink-0">
-              <Box className="w-5 h-5" />
-              <span>{currentGuideMaterial.location || '待指定抽屉'}</span>
-            </div>
+            {(() => {
+              const locInfo = parseLocationInfo(currentGuideMaterial.location);
+              if (locInfo.slot) {
+                return (
+                  <div className="px-3.5 py-1.5 bg-accent text-white font-mono font-black rounded-[2px] shadow-sm tracking-tight flex items-center gap-2 shrink-0">
+                    <Target className="w-6 h-6 stroke-[3]" />
+                    <div className="leading-tight text-left">
+                      <div className="text-xl sm:text-2xl font-black">{locInfo.slot}</div>
+                      <div className="text-[10px] font-bold opacity-80">{locInfo.boxName || activeBoxName} 抽屉</div>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div className="px-3.5 py-1.5 bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/40 font-mono font-black rounded-[2px] shadow-sm tracking-tight flex items-center gap-2 shrink-0">
+                  <Box className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  <div className="leading-tight text-left">
+                    <div className="text-base font-black">盒内散料</div>
+                    <div className="text-[10px] font-bold text-amber-700/80 dark:text-amber-400/80">
+                      {locInfo.boxName || activeBoxName || '未分配格子'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -475,6 +526,12 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
                   序号: {currentGuideIndex + 1} / {guideQueue.length}
                 </span>
               </div>
+
+              {!parseLocationInfo(currentGuideMaterial.location).slot && (
+                <div className="text-[11px] text-amber-600 dark:text-amber-400 font-bold mt-1 flex items-center gap-1">
+                  <span>💡 提示：此物料存放于收纳盒散料区（未固定具体抽屉），可在盒内取件打卡</span>
+                </div>
+              )}
             </div>
           </div>
 

@@ -45,16 +45,19 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
           ? 'bg-surface hover:bg-surface-hover border-border-subtle shadow-xs hover:border-border-hover'
           : 'bg-canvas/80 hover:bg-surface border-dashed border-border-subtle hover:border-accent'
       } ${
-        // 寻料沙盘亮灯指示环 (核心发光特效)
+        // 寻料沙盘亮灯指示环 (核心发光呼吸特效)
         kittingStatus === 'FOCUSED'
-          ? 'ring-3 ring-accent border-accent bg-accent/20 scale-[1.02] shadow-md z-20'
+          ? 'ring-4 ring-accent border-accent bg-accent/20 scale-[1.04] shadow-xl shadow-accent/40 z-30 animate-pulse'
           : kittingStatus === 'SUFFICIENT'
-          ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-500/10 shadow-2xs'
+          ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-500/15 shadow-sm shadow-emerald-500/20'
           : kittingStatus === 'SHORTAGE'
-          ? 'ring-2 ring-amber-500 border-amber-500 bg-amber-500/10 shadow-2xs'
+          ? 'ring-2 ring-amber-500 border-amber-500 bg-amber-500/15 shadow-sm shadow-amber-500/20'
           : kittingStatus === 'SUBSTITUTE'
-          ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/10 shadow-2xs'
+          ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/15 shadow-sm shadow-blue-500/20'
           : ''
+      } ${
+        // 已取件状态置灰压暗
+        isPicked ? 'opacity-55 saturate-50 hover:opacity-100' : ''
       } ${
         // 激活选中态
         isSelected && !kittingStatus
@@ -74,6 +77,16 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
           : ''
       }`}
     >
+      {/* 寻料目标超高亮呼吸信标雷达点 (当前正在导引的抽屉独享) */}
+      {kittingStatus === 'FOCUSED' && (
+        <span className="absolute -top-2.5 -right-2.5 flex h-6 w-6 z-40 pointer-events-none">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-90" />
+          <span className="relative inline-flex rounded-full h-6 w-6 bg-accent text-white text-[11px] font-black items-center justify-center shadow-lg">
+            🎯
+          </span>
+        </span>
+      )}
+
       {/* 顶部亚克力拉手微槽模拟 (加粗饱满，凸显物理手感) */}
       <div className="absolute top-1 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-border-hover/60 group-hover:bg-accent/60 transition-colors pointer-events-none" />
 
