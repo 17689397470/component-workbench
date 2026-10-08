@@ -65,6 +65,22 @@ export const componentApi = {
     });
   },
 
+  // 官方立创在线参数/图片/品名反查
+  async queryOfficial(text: string) {
+    return apiRequest<{ success: boolean; data: any }>(`/api/components/query-official`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+
+  // 自由多行文本智能拆解与防重检测
+  async parseBatch(text: string) {
+    return apiRequest<{ success: boolean; count: number; items: any[] }>(`/api/components/parse-batch`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  },
+
   // 批量入库
   async batchAdd(items: any[]) {
     return apiRequest<{ success: boolean; data: any }>(`/api/components/batch-add`, {
