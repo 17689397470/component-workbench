@@ -11,6 +11,7 @@ import {
 import { Drawer } from '../ui/Drawer';
 import { LcscCalibrationModal } from './LcscCalibrationModal';
 import { BindSubstituteModal } from './BindSubstituteModal';
+import { LocationLocatorModal } from '../boxes/LocationLocatorModal';
 import {
   ExternalLink,
   Trash2,
@@ -34,6 +35,7 @@ import {
   FolderGit2,
   History,
   ShieldAlert,
+  Compass,
 } from 'lucide-react';
 
 export const ComponentDetailDrawer: React.FC = () => {
@@ -53,6 +55,7 @@ export const ComponentDetailDrawer: React.FC = () => {
   // 模态框控制
   const [isCalibrationOpen, setIsCalibrationOpen] = useState(false);
   const [isBindSubstituteOpen, setIsBindSubstituteOpen] = useState(false);
+  const [isLocatorOpen, setIsLocatorOpen] = useState(false);
   const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
@@ -614,6 +617,16 @@ export const ComponentDetailDrawer: React.FC = () => {
               <div>
                 <label className="block text-text-dim mb-1 font-medium flex items-center justify-between">
                   <span>📦 存放收纳盒位置</span>
+                  {item.location && (
+                    <button
+                      type="button"
+                      onClick={() => setIsLocatorOpen(true)}
+                      className="text-xs text-accent hover:underline flex items-center gap-1 font-semibold"
+                    >
+                      <Compass className="w-3.5 h-3.5" />
+                      <span>🧭 现实网格透视</span>
+                    </button>
+                  )}
                 </label>
                 <input
                   type="text"
@@ -1100,6 +1113,14 @@ export const ComponentDetailDrawer: React.FC = () => {
             onClose={() => setIsBindSubstituteOpen(false)}
             component={item}
             onSuccess={() => loadSubstitutes(item.id)}
+          />
+
+          <LocationLocatorModal
+            isOpen={isLocatorOpen}
+            onClose={() => setIsLocatorOpen(false)}
+            componentId={item.id}
+            locationStr={item.location}
+            componentName={item.name}
           />
         </>
       )}

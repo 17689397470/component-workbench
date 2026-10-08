@@ -111,8 +111,25 @@ STM32F401CCU6,QFN-48,"U1",1,
   }
   console.log(`✔ 扫码解析成功: 料号=${scanData.data.lcsc_part}, 品名=${scanData.data.name}, 数量=${scanData.data.quantity}`);
 
+  console.log('\n--- [Step 11] 验证物理收纳盒 2.0 (Boxes 2.0) 网格透视与格位分配 ---');
+  const boxesRes = await fetch('http://localhost:3000/api/storage-boxes');
+  const boxesData = await boxesRes.json();
+  if (!boxesData.success || !Array.isArray(boxesData.data) || boxesData.data.length === 0) {
+    throw new Error('收纳盒 2.0 列表查询失败');
+  }
+  const targetBox = boxesData.data[0];
+  console.log(`✔ 收纳盒 2.0 聚合列表正常: 共发现 ${boxesData.data.length} 个空间, 抽查 [${targetBox.name}] (饱和度: ${targetBox.occupancy_rate || 0}%)`);
+
+  // 验证网格
+  const gridRes = await fetch(`http://localhost:3000/api/storage-boxes/${targetBox.id || encodeURIComponent(targetBox.name)}/grid`);
+  const gridData = await gridRes.json();
+  if (!gridData.success || !gridData.data.grid) {
+    throw new Error('收纳盒 2.0 网格投射失败');
+  }
+  console.log(`✔ 收纳盒 2.0 二维网格投影正常: 网格数=${gridData.data.grid.length}, 待分配散料=${gridData.data.unassigned.length} 种`);
+
   console.log('\n========================================================');
-  console.log('🎉 全部单元与集成测试（含备份快照与智能扫码）均 100% 顺利通过！');
+  console.log('🎉 全部单元与集成测试（含收纳盒2.0网格与全流程）均 100% 顺利通过！');
   console.log('========================================================\n');
 }
 

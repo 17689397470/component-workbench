@@ -13,6 +13,7 @@ import { useToastStore } from '../store/useToastStore';
 import { ManualSubstituteModal } from '../components/ManualSubstituteModal';
 import { SubstituteRulesModal } from '../components/SubstituteRulesModal';
 import { LcscExportModal } from '../components/LcscExportModal';
+import { LocationLocatorModal } from '../components/boxes/LocationLocatorModal';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -37,7 +38,8 @@ import {
   ShieldCheck,
   FolderPlus,
   ArrowRight,
-  RotateCcw
+  RotateCcw,
+  Compass,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { ComponentItem } from '../types/component';
@@ -93,6 +95,11 @@ export const BomView: React.FC = () => {
   const [isLcscModalOpen, setIsLcscModalOpen] = useState(false);
   const [isDeductConfirmOpen, setIsDeductConfirmOpen] = useState(false);
   const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
+  const [locatorTarget, setLocatorTarget] = useState<{
+    location: string;
+    name?: string;
+    componentId?: number;
+  } | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [autoLockStock, setAutoLockStock] = useState(true);
@@ -985,11 +992,24 @@ export const BomView: React.FC = () => {
                                   <div className="font-semibold text-text-main">
                                     {r.matchedStock.name}
                                   </div>
-                                  <div className="text-[11px] text-text-dim">
-                                    📦 货位: <strong className="font-mono text-text-main">{r.matchedStock.location || '未标注'}</strong> · 余量:{' '}
-                                    <strong className="font-mono text-emerald-700">
-                                      {r.matchedStock.quantity}
-                                    </strong>
+                                  <div className="text-[11px] text-text-dim flex items-center gap-1.5 flex-wrap">
+                                    <span>📦 货位: <strong className="font-mono text-text-main">{r.matchedStock.location || '未标注'}</strong></span>
+                                    {r.matchedStock.location && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setLocatorTarget({
+                                          location: r.matchedStock!.location!,
+                                          name: r.matchedStock!.name,
+                                          componentId: r.matchedStock!.id,
+                                        })}
+                                        className="text-accent hover:underline flex items-center gap-0.5 text-[10px]"
+                                        title="定位现实物理格位"
+                                      >
+                                        <Compass className="w-3 h-3" />
+                                        <span>透视</span>
+                                      </button>
+                                    )}
+                                    <span>· 余量: <strong className="font-mono text-emerald-700">{r.matchedStock.quantity}</strong></span>
                                   </div>
                                 </div>
                               </div>
@@ -1002,8 +1022,23 @@ export const BomView: React.FC = () => {
                                   {r.substituteOption.reason}
                                 </div>
                                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-blue-500/20">
-                                  <div className="text-[11px] text-text-dim">
-                                    📦 货位: <strong className="font-mono text-text-main">{r.substituteOption.component?.location || '未标注'}</strong>
+                                  <div className="text-[11px] text-text-dim flex items-center gap-1">
+                                    <span>📦 货位: <strong className="font-mono text-text-main">{r.substituteOption.component?.location || '未标注'}</strong></span>
+                                    {r.substituteOption.component?.location && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setLocatorTarget({
+                                          location: r.substituteOption!.component!.location!,
+                                          name: r.substituteOption!.component!.name,
+                                          componentId: r.substituteOption!.component!.id,
+                                        })}
+                                        className="text-accent hover:underline flex items-center gap-0.5 text-[10px]"
+                                        title="定位现实物理格位"
+                                      >
+                                        <Compass className="w-3 h-3" />
+                                        <span>透视</span>
+                                      </button>
+                                    )}
                                   </div>
                                   <button
                                     type="button"
@@ -1121,8 +1156,19 @@ export const BomView: React.FC = () => {
                     className="p-3 bg-canvas border border-border-subtle rounded-xl text-xs space-y-2"
                   >
                     <div className="font-bold text-accent flex items-center justify-between border-b border-border-subtle pb-1">
-                      <span>📦 货位: {loc}</span>
-                      <span className="text-[10px] text-text-dim">{items.length} 种物料</span>
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span>📦 货位: {loc}</span>
+                        <button
+                          type="button"
+                          onClick={() => setLocatorTarget({ location: loc, name: `${loc} 拣料货位` })}
+                          className="px-1.5 py-0.5 text-[10px] bg-accent/10 hover:bg-accent hover:text-white rounded flex items-center gap-0.5 transition-colors"
+                          title="在物理网格柜中定位该格位"
+                        >
+                          <Compass className="w-3 h-3" />
+                          <span>透视</span>
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-text-dim shrink-0">{items.length} 种物料</span>
                     </div>
 
                     <div className="space-y-1.5">
@@ -1311,6 +1357,15 @@ export const BomView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 仓位现实网格透视罗盘 */}
+      <LocationLocatorModal
+        isOpen={!!locatorTarget}
+        onClose={() => setLocatorTarget(null)}
+        componentId={locatorTarget?.componentId}
+        locationStr={locatorTarget?.location}
+        componentName={locatorTarget?.name}
+      />
     </div>
   );
 };

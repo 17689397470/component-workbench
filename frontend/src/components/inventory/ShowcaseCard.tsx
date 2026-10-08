@@ -2,7 +2,8 @@ import React from 'react';
 import { ComponentItem } from '../../types/component';
 import { useInventoryStore } from '../../store/useInventoryStore';
 import { getCategoryIcon, formatSpec, cn } from '../../lib/utils';
-import { ExternalLink, Box } from 'lucide-react';
+import { ExternalLink, Box, Compass } from 'lucide-react';
+import { LocationLocatorModal } from '../boxes/LocationLocatorModal';
 
 interface ShowcaseCardProps {
   item: ComponentItem;
@@ -11,6 +12,7 @@ interface ShowcaseCardProps {
 export const ShowcaseCard: React.FC<ShowcaseCardProps> = ({ item }) => {
   const { setSelectedComponentId, setLocationFilter } = useInventoryStore();
   const [imgError, setImgError] = React.useState(false);
+  const [isLocatorOpen, setIsLocatorOpen] = React.useState(false);
 
   React.useEffect(() => {
     setImgError(false);
@@ -108,17 +110,33 @@ export const ShowcaseCard: React.FC<ShowcaseCardProps> = ({ item }) => {
           </div>
         </div>
 
-        {/* 所在收纳盒 (可点击过滤) */}
+        {/* 所在收纳盒 (可点击过滤，或点击罗盘透视) */}
         <div
           onClick={(e) => {
             e.stopPropagation();
             setLocationFilter(item.location || '');
           }}
-          className="text-xs text-text-muted flex items-center gap-1.5 pt-2 border-t border-dashed border-border-subtle hover:text-accent transition-colors"
+          className="text-xs text-text-muted flex items-center justify-between pt-2 border-t border-dashed border-border-subtle hover:text-accent transition-colors"
           title="点击按该盒位筛选"
         >
-          <Box className="w-3.5 h-3.5 text-text-dim flex-shrink-0" />
-          <span className="truncate">{item.location || '随手存放处'}</span>
+          <div className="flex items-center gap-1.5 truncate">
+            <Box className="w-3.5 h-3.5 text-text-dim flex-shrink-0" />
+            <span className="truncate">{item.location || '随手存放处'}</span>
+          </div>
+
+          {item.location && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLocatorOpen(true);
+              }}
+              className="p-1 hover:bg-subtle text-text-dim hover:text-accent rounded-md transition-colors"
+              title="透视现实物理格位"
+            >
+              <Compass className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -144,6 +162,14 @@ export const ShowcaseCard: React.FC<ShowcaseCardProps> = ({ item }) => {
           </span>
         )}
       </div>
+
+      <LocationLocatorModal
+        isOpen={isLocatorOpen}
+        onClose={() => setIsLocatorOpen(false)}
+        componentId={item.id}
+        locationStr={item.location}
+        componentName={item.name}
+      />
     </div>
   );
 };

@@ -492,6 +492,92 @@ app.get('/api/storage/boxes/:name', async (req, res) => {
   }
 });
 
+// 12.1 [Boxes 2.0] 获取所有物理收纳盒列表 (配置、网格尺寸与聚合统计)
+app.get('/api/storage-boxes', async (req, res) => {
+  try {
+    const list = await db.getAllStorageBoxes();
+    res.json({ success: true, count: list.length, data: list });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12.2 [Boxes 2.0] 新增或更新收纳盒配置
+app.post('/api/storage-boxes', async (req, res) => {
+  try {
+    const result = await db.saveStorageBoxConfig(req.body);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.put('/api/storage-boxes/:id', async (req, res) => {
+  try {
+    const result = await db.saveStorageBoxConfig({ id: req.params.id, ...req.body });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12.3 [Boxes 2.0] 删除收纳盒配置
+app.delete('/api/storage-boxes/:id', async (req, res) => {
+  try {
+    const result = await db.deleteStorageBoxConfig(req.params.id);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12.4 [Boxes 2.0] 获取指定收纳盒的完整网格矩阵映射
+app.get('/api/storage-boxes/:id/grid', async (req, res) => {
+  try {
+    const gridData = await db.getStorageBoxGrid(req.params.id);
+    res.json({ success: true, data: gridData });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12.5 [Boxes 2.0] 将元器件绑定或移位到具体格位
+app.post('/api/storage-boxes/assign-slot', async (req, res) => {
+  try {
+    const { component_id, box_name, slot_key } = req.body;
+    if (!component_id || !box_name || !slot_key) {
+      return res.status(400).json({ success: false, error: '缺少物料ID、盒子名称或格位代码' });
+    }
+    const result = await db.assignComponentToSlot(parseInt(component_id, 10), box_name, slot_key);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12.6 [Boxes 2.0] 清除元器件格位 (移入待分配散料区)
+app.post('/api/storage-boxes/clear-slot', async (req, res) => {
+  try {
+    const { component_id } = req.body;
+    if (!component_id) return res.status(400).json({ success: false, error: '缺少物料ID' });
+    const result = await db.removeComponentFromSlot(parseInt(component_id, 10));
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 12.7 [Boxes 2.0] 查询元器件具体的物理收纳盒与格位定位器
+app.get('/api/components/:id/locator', async (req, res) => {
+  try {
+    const locator = await db.getComponentLocator(parseInt(req.params.id, 10));
+    if (!locator) return res.status(404).json({ success: false, error: '未找到元器件' });
+    res.json({ success: true, data: locator });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 13. 获取低库存与告警清单
 app.get('/api/components/low-stock', async (req, res) => {
   try {
