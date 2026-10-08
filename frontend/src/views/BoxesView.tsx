@@ -54,6 +54,25 @@ export const BoxesView: React.FC = () => {
     }
   };
 
+  const handleConfigSaved = async () => {
+    await fetchBoxes();
+    if (activeBox) {
+      try {
+        const res = await boxApi.getStorageBoxes();
+        if (res.success && res.data) {
+          const updated = res.data.find(
+            (b) => (editingBox && b.id === editingBox.id) || b.name === (editingBox?.name || activeBox.name)
+          );
+          if (updated) {
+            setActiveBox(updated);
+          }
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
+
   useEffect(() => {
     fetchBoxes();
   }, []);
@@ -424,15 +443,7 @@ export const BoxesView: React.FC = () => {
         </div>
       )}
 
-      {/* 配置弹窗 */}
-      <StorageBoxConfigModal
-        isOpen={configModalOpen}
-        onClose={() => setConfigModalOpen(false)}
-        box={editingBox}
-        onSaved={fetchBoxes}
-      />
-
-      {/* 2D 亚克力网格工作台 */}
+      {/* 2D 亚克力网格工作台 (基础层级 z-50) */}
       <StorageBoxGridModal
         isOpen={gridModalOpen}
         onClose={() => setGridModalOpen(false)}
@@ -444,6 +455,15 @@ export const BoxesView: React.FC = () => {
         onSelectComponent={(comp) => {
           setSelectedComponentId(comp.id);
         }}
+      />
+
+      {/* 配置弹窗 (最顶层级 z-80，确保在网格弹窗之上可见) */}
+      <StorageBoxConfigModal
+        isOpen={configModalOpen}
+        onClose={() => setConfigModalOpen(false)}
+        box={editingBox}
+        onSaved={handleConfigSaved}
+        zIndex={80}
       />
 
       {/* 元器件全生命周期档案抽屉 */}

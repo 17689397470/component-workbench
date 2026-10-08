@@ -19,6 +19,7 @@ interface StorageBoxConfigModalProps {
   onClose: () => void;
   box?: StorageBoxConfig | null;
   onSaved: () => void;
+  zIndex?: number;
 }
 
 const PRESET_TEMPLATES = [
@@ -100,6 +101,7 @@ export const StorageBoxConfigModal: React.FC<StorageBoxConfigModalProps> = ({
   onClose,
   box,
   onSaved,
+  zIndex = 70,
 }) => {
   const { showToast } = useToastStore();
   const [submitting, setSubmitting] = useState(false);
@@ -209,6 +211,7 @@ export const StorageBoxConfigModal: React.FC<StorageBoxConfigModalProps> = ({
       onClose={onClose}
       title={box ? `⚙️ 配置收纳盒: ${box.name}` : '✨ 新建物理收纳空间'}
       maxWidth="max-w-xl"
+      zIndex={zIndex}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* 预设模板选单 */}

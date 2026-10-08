@@ -88,7 +88,7 @@ export const StorageBoxGridModal: React.FC<StorageBoxGridModalProps> = ({
       setInspectSlot(null);
       fetchGridData(1);
     }
-  }, [isOpen, boxSummary?.name]);
+  }, [isOpen, boxSummary?.name, boxSummary?.rows, boxSummary?.cols, boxSummary?.pages, boxSummary?.color]);
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
@@ -507,6 +507,7 @@ export const StorageBoxGridModal: React.FC<StorageBoxGridModalProps> = ({
           onClose={() => setSelectedSlotForAdd(null)}
           title={`📥 放入物料至格位 [${selectedSlotForAdd}]`}
           maxWidth="max-w-md"
+          zIndex={60}
         >
           <div className="space-y-4">
             {/* 优先选项 A：从本盒散料直接挑选 */}
@@ -597,6 +598,7 @@ export const StorageBoxGridModal: React.FC<StorageBoxGridModalProps> = ({
           onClose={() => setInspectSlot(null)}
           title={`📍 格位详情: [${inspectSlot.slot}]`}
           maxWidth="max-w-md"
+          zIndex={60}
         >
           {(() => {
             const comp = inspectSlot.components[0];

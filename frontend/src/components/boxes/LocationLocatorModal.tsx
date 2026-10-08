@@ -80,6 +80,7 @@ export const LocationLocatorModal: React.FC<LocationLocatorModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      zIndex={70}
       title={
         <div className="flex items-center gap-2">
           <Compass className="w-5 h-5 text-accent animate-spin-slow" />
