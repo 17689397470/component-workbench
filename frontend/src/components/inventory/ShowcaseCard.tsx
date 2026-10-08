@@ -10,6 +10,11 @@ interface ShowcaseCardProps {
 
 export const ShowcaseCard: React.FC<ShowcaseCardProps> = ({ item }) => {
   const { setSelectedComponentId, setLocationFilter } = useInventoryStore();
+  const [imgError, setImgError] = React.useState(false);
+
+  React.useEffect(() => {
+    setImgError(false);
+  }, [item.image_url]);
 
   const icon = getCategoryIcon(item.category);
   const spec = formatSpec(item);
@@ -18,6 +23,8 @@ export const ShowcaseCard: React.FC<ShowcaseCardProps> = ({ item }) => {
   const lcscUrl =
     item.datasheet_url || (cNum ? `https://item.szlcsc.com/${cNum.replace('C', '')}.html` : null);
 
+  const hasValidImg = Boolean(item.image_url && !imgError);
+
   return (
     <div
       onClick={() => setSelectedComponentId(item.id)}
@@ -25,11 +32,13 @@ export const ShowcaseCard: React.FC<ShowcaseCardProps> = ({ item }) => {
     >
       {/* 顶部图片与角标区 */}
       <div className="relative h-36 bg-canvas border-b border-border-subtle flex items-center justify-center p-3 overflow-hidden">
-        {item.image_url ? (
+        {hasValidImg ? (
           <img
-            src={item.image_url}
+            src={item.image_url!}
             alt={item.name}
             loading="lazy"
+            referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
             className="w-full h-full object-contain mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-200"
           />
         ) : (

@@ -407,6 +407,7 @@ export const LcscCalibrationModal: React.FC<LcscCalibrationModalProps> = ({
                                 <img
                                   src={field.officialVal}
                                   alt="预览"
+                                  referrerPolicy="no-referrer"
                                   className="w-8 h-8 rounded object-cover border border-border-subtle bg-white"
                                 />
                                 <span className="text-[10px] text-text-dim truncate max-w-[150px]">

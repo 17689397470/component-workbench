@@ -53,6 +53,11 @@ export const ComponentDetailDrawer: React.FC = () => {
   // 模态框控制
   const [isCalibrationOpen, setIsCalibrationOpen] = useState(false);
   const [isBindSubstituteOpen, setIsBindSubstituteOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [item?.image_url]);
 
   // 表单编辑字段
   const [editingNotes, setEditingNotes] = useState('');
@@ -321,11 +326,13 @@ export const ComponentDetailDrawer: React.FC = () => {
           <div className="p-4 bg-surface-subtle border border-border-subtle rounded-2xl space-y-3">
             <div className="flex items-start gap-3.5">
               {/* 实物缩略图 */}
-              {item.image_url ? (
+              {item.image_url && !imgError ? (
                 <div className="w-20 h-20 rounded-xl bg-white border border-border-subtle flex-shrink-0 flex items-center justify-center p-1 overflow-hidden relative group">
                   <img
                     src={item.image_url}
                     alt={item.name}
+                    referrerPolicy="no-referrer"
+                    onError={() => setImgError(true)}
                     className="max-h-full max-w-full object-contain mix-blend-multiply"
                   />
                   <a
