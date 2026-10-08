@@ -326,6 +326,93 @@ app.delete('/api/components/:id', async (req, res) => {
   }
 });
 
+// 9.1 立创官方参数校准对比预览
+app.get('/api/components/:id/lcsc-preview', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const comp = await db.getComponentById(id);
+    if (!comp) return res.status(404).json({ success: false, error: '未找到元器件' });
+
+    const queryKey = req.query.c_part || comp.lcsc_part || comp.name;
+    const official = await queryOfficialComponent(queryKey);
+    res.json({
+      success: true,
+      data: {
+        current: comp,
+        official
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9.2 立创官方参数校准应用覆盖
+app.post('/api/components/:id/lcsc-apply', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const comp = await db.getComponentById(id);
+    if (!comp) return res.status(404).json({ success: false, error: '未找到元器件' });
+
+    const fieldsToUpdate = req.body.fields || {};
+    await db.updateComponent(id, fieldsToUpdate);
+    await db.addStockLog(id, fieldsToUpdate.name || comp.name, 0, comp.quantity, 'CALIBRATE', '立创官方规格校准覆盖');
+
+    const updatedComp = await db.getComponentById(id);
+    res.json({ success: true, data: updatedComp });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9.3 获取元器件替代料推荐 (用户绑定平替 + 系统自动匹配)
+app.get('/api/components/:id/substitutes', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const result = await db.getComponentSubstitutes(id);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9.4 手动绑定平替物料
+app.post('/api/components/:id/substitutes', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { substitute_id, note } = req.body;
+    if (!substitute_id) return res.status(400).json({ success: false, error: '缺少替代物料ID' });
+
+    const result = await db.bindComponentSubstitute(id, parseInt(substitute_id, 10), note || '');
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9.5 解绑平替物料
+app.delete('/api/components/:id/substitutes/:substituteId', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const subId = parseInt(req.params.substituteId, 10);
+    const result = await db.unbindComponentSubstitute(id, subId);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 9.6 获取元器件关联的项目锁定与需求明细
+app.get('/api/components/:id/project-allocations', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const allocations = await db.getComponentProjectAllocations(id);
+    res.json({ success: true, data: allocations });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 10. 冷启动预置常用阻容与芯片
 app.post('/api/components/seed-presets', async (req, res) => {
   try {

@@ -46,3 +46,44 @@ export interface InventoryStats {
   lowStockCount: number;
   categoryDistribution: { category: string; count: number; percentage: number }[];
 }
+
+export interface ComponentSubstituteItem extends ComponentItem {
+  rule_id?: number;
+  rule_note?: string;
+  pinned_at?: string;
+  match_reasons?: string[];
+}
+
+export interface SubstitutesResponse {
+  pinned: ComponentSubstituteItem[];
+  auto: ComponentSubstituteItem[];
+}
+
+export interface ProjectAllocationItem {
+  item_id: number;
+  project_id: number;
+  part_name: string;
+  package: string;
+  unit_demand_qty: number;
+  total_demand_qty: number;
+  locked_qty: number;
+  item_status: string;
+  designators?: string;
+  project_name: string;
+  project_status: string;
+  project_desc?: string;
+  target_qty: number;
+  project_created_at: string;
+}
+
+export interface StockLogItem {
+  id: number;
+  component_id: number;
+  component_name: string;
+  change_qty: number;
+  balance_qty: number;
+  action_type: string;
+  note: string;
+  created_at: string;
+}
+
