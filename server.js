@@ -855,10 +855,36 @@ app.post('/api/projects/:id/lock', async (req, res) => {
   }
 });
 
-// 28. 一键释放项目预锁库存
+// 27.1 获取项目锁库物料明细清单
+app.get('/api/projects/:id/locked-items', async (req, res) => {
+  try {
+    const project = await db.getProjectDetail(req.params.id);
+    if (!project) {
+      return res.status(404).json({ success: false, error: '未找到该项目' });
+    }
+    const lockedList = (project.items || [])
+      .filter(item => (item.locked_qty || 0) > 0)
+      .map(item => ({
+        id: item.id,
+        component_id: item.component_id,
+        project_id: item.project_id,
+        name: item.comp_name || item.part_name,
+        package: item.comp_package || item.package,
+        value: item.value || '',
+        locked_quantity: item.locked_qty,
+        location: item.comp_location || '未标注'
+      }));
+    res.json({ success: true, data: lockedList });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 28. 释放项目预锁库存 (支持单项或整项目释放)
 app.post('/api/projects/:id/unlock', async (req, res) => {
   try {
-    const updated = await db.unlockProjectStock(req.params.id);
+    const componentId = req.body && req.body.componentId ? parseInt(req.body.componentId, 10) : null;
+    const updated = await db.unlockProjectStock(req.params.id, componentId);
     res.json({ success: true, data: updated });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
