@@ -116,9 +116,28 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
     return stats;
   }, [boxes, materials, checkedPicks]);
 
-  // 3. 初始自动选中用料最多的收纳盒
+  // 待取的物料巡航队列
+  const guideQueue = useMemo(() => {
+    return materials.filter((m) => !!m.location);
+  }, [materials]);
+
+  // 3. 初始自动选中用料最多的收纳盒或第一个待取物料所在的收纳盒
   useEffect(() => {
-    if (boxes.length > 0 && !activeBoxName) {
+    if (boxes.length > 0 && !activeBoxName && isOpen) {
+      // 优先选第一个未打卡物料所在的盒子
+      const firstUnpicked = guideQueue.find((m) => !checkedPicks[String(m.id)]) || guideQueue[0];
+      if (firstUnpicked?.location) {
+        const loc = firstUnpicked.location.trim();
+        const matchedBox = boxes.find((b) => loc.startsWith(b.name) || loc.includes(b.name));
+        if (matchedBox) {
+          setActiveBoxName(matchedBox.name);
+          const idx = guideQueue.findIndex((m) => String(m.id) === String(firstUnpicked.id));
+          if (idx !== -1) setCurrentGuideIndex(idx);
+          return;
+        }
+      }
+
+      // 否则选择需求最多的盒子
       let bestBox = boxes[0].name;
       let maxCount = -1;
       for (const [boxName, s] of Object.entries(boxStats)) {
@@ -129,7 +148,16 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
       }
       setActiveBoxName(bestBox);
     }
-  }, [boxes, boxStats, activeBoxName]);
+  }, [boxes, boxStats, activeBoxName, isOpen, guideQueue, checkedPicks]);
+
+  // 关闭时重置状态
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveBoxName('');
+      setCurrentGuideIndex(0);
+      setInspectedSlot(null);
+    }
+  }, [isOpen]);
 
   // 4. 加载当前收纳盒网格数据
   const fetchGrid = async (boxName: string, page: number) => {
@@ -192,53 +220,91 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
     return map;
   }, [materials, gridData]);
 
-  // 6. 待取的物料巡航队列
-  const guideQueue = useMemo(() => {
-    return materials.filter((m) => !!m.location);
-  }, [materials]);
-
   const currentGuideMaterial = guideQueue[currentGuideIndex] || guideQueue[0] || null;
 
-  // 自动将沙盘对齐到当前导引物料所在的收纳盒
-  const syncToGuideMaterial = useCallback(
-    (mat: KittingMaterial | null) => {
-      if (!mat || !mat.location || boxes.length === 0) return;
+  // 跳转到指定导引物料并切换至其收纳盒
+  const jumpToGuideIndex = (idx: number) => {
+    if (idx < 0 || idx >= guideQueue.length) return;
+    setCurrentGuideIndex(idx);
+    const mat = guideQueue[idx];
+    if (mat?.location) {
       const loc = mat.location.trim();
       const targetBox = boxes.find((b) => loc.startsWith(b.name) || loc.includes(b.name));
       if (targetBox && targetBox.name !== activeBoxName) {
         setActiveBoxName(targetBox.name);
         setCurrentPage(1);
+        setInspectedSlot(null);
       }
-    },
-    [boxes, activeBoxName]
-  );
-
-  useEffect(() => {
-    if (currentGuideMaterial) {
-      syncToGuideMaterial(currentGuideMaterial);
     }
-  }, [currentGuideIndex, currentGuideMaterial, syncToGuideMaterial]);
+  };
 
-  // 切换到下一个待取抽屉
+  // 用户主动点击收纳盒药丸切换
+  const handleSelectBox = (boxName: string) => {
+    setActiveBoxName(boxName);
+    setCurrentPage(1);
+    setInspectedSlot(null);
+
+    // 尝试在选中的收纳盒中寻找对应的待取物料，对齐大字牌
+    const unpickedIdx = guideQueue.findIndex((m) => {
+      const loc = (m.location || '').trim();
+      const matches = loc.startsWith(boxName) || loc.includes(boxName);
+      return matches && !checkedPicks[String(m.id)];
+    });
+
+    if (unpickedIdx !== -1) {
+      setCurrentGuideIndex(unpickedIdx);
+    } else {
+      const anyIdx = guideQueue.findIndex((m) => {
+        const loc = (m.location || '').trim();
+        return loc.startsWith(boxName) || loc.includes(boxName);
+      });
+      if (anyIdx !== -1) {
+        setCurrentGuideIndex(anyIdx);
+      }
+    }
+  };
+
+  // 切换到下一个待取抽屉 (优先当前盒内待取，再跨盒)
   const handleNextGuide = () => {
     if (guideQueue.length === 0) return;
-    // 优先寻找下一个未打卡的
+
+    // 1. 优先在当前收纳盒内找下一个待取
+    const nextInSameBox = guideQueue.findIndex((m, idx) => {
+      if (idx <= currentGuideIndex || checkedPicks[String(m.id)]) return false;
+      const loc = (m.location || '').trim();
+      return loc.startsWith(activeBoxName) || loc.includes(activeBoxName);
+    });
+
+    if (nextInSameBox !== -1) {
+      jumpToGuideIndex(nextInSameBox);
+      return;
+    }
+
+    // 2. 跨盒寻找全局下一个未打卡
     const nextUnpickedIndex = guideQueue.findIndex(
       (m, idx) => idx > currentGuideIndex && !checkedPicks[String(m.id)]
     );
     if (nextUnpickedIndex !== -1) {
-      setCurrentGuideIndex(nextUnpickedIndex);
+      jumpToGuideIndex(nextUnpickedIndex);
       return;
     }
-    // 循环或顺序下一个
+
+    // 3. 从头开始寻找全局未打卡
+    const fromStartUnpicked = guideQueue.findIndex((m) => !checkedPicks[String(m.id)]);
+    if (fromStartUnpicked !== -1 && fromStartUnpicked !== currentGuideIndex) {
+      jumpToGuideIndex(fromStartUnpicked);
+      return;
+    }
+
+    // 4. 全部取完，简单循环下一项
     const nextIdx = (currentGuideIndex + 1) % guideQueue.length;
-    setCurrentGuideIndex(nextIdx);
+    jumpToGuideIndex(nextIdx);
   };
 
   const handlePrevGuide = () => {
     if (guideQueue.length === 0) return;
     const prevIdx = (currentGuideIndex - 1 + guideQueue.length) % guideQueue.length;
-    setCurrentGuideIndex(prevIdx);
+    jumpToGuideIndex(prevIdx);
   };
 
   // 打卡当前导引物料
@@ -248,7 +314,6 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
     onTogglePick(currentGuideMaterial.id, !isCurrentlyPicked);
     if (!isCurrentlyPicked) {
       showToast(`✔ [${currentGuideMaterial.location}] ${currentGuideMaterial.name} 已取料！`, 'success');
-      // 自动顺延到下一个未取项
       setTimeout(() => {
         handleNextGuide();
       }, 200);
@@ -459,11 +524,7 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
             return (
               <button
                 key={b.id || b.name}
-                onClick={() => {
-                  setActiveBoxName(b.name);
-                  setCurrentPage(1);
-                  setInspectedSlot(null);
-                }}
+                onClick={() => handleSelectBox(b.name)}
                 className={cn(
                   'px-2.5 py-1 text-xs font-mono font-bold rounded-[2px] border transition-all flex items-center gap-1.5 shrink-0',
                   isSelected
