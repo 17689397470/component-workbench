@@ -1532,3 +1532,18 @@ startServer().catch(err => {
   console.error('[Fatal Error] 服务启动失败:', err);
   process.exit(1);
 });
+
+// 优雅停机与安全持久化
+const handleGracefulShutdown = async (signal) => {
+  console.log(`\n[Server] 收到 ${signal} 信号，正在安全持久化并关闭数据库...`);
+  try {
+    await db.closeDb();
+    console.log('[Server] 数据库已安全断开，数据无损保存。再见！');
+  } catch (e) {
+    console.error('[Server] 关闭数据库时发生异常:', e);
+  }
+  process.exit(0);
+};
+
+process.on('SIGINT', () => handleGracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => handleGracefulShutdown('SIGTERM'));
