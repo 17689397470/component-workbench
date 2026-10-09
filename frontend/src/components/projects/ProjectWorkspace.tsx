@@ -946,7 +946,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                 <tr>
                   <th className="py-2 px-3 w-10 text-center">取料</th>
                   <th className="py-2 px-3">物料型号 / 规格</th>
-                  <th className="py-2 px-3 w-28">封装</th>
+                  <th className="py-2 px-3 w-28 min-w-[90px]">封装</th>
                   <th className="py-2 px-3">电路位号</th>
                   <th className="py-2 px-3 w-28">需用 / 存量</th>
                   <th className="py-2 px-3 w-36">物理货位</th>
@@ -996,9 +996,12 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                       </td>
 
                       {/* 封装 */}
-                      <td className="py-2.5 px-3">
+                      <td className="py-2.5 px-3 whitespace-nowrap">
                         {mat.package ? (
-                          <span className="px-1.5 py-0.5 bg-canvas border border-border-subtle text-[11px] font-mono text-text-muted rounded-[2px] font-bold">
+                          <span
+                            className="inline-block whitespace-nowrap max-w-[120px] truncate align-middle px-1.5 py-0.5 bg-canvas border border-border-subtle text-[11px] font-mono text-text-muted rounded-[2px] font-bold"
+                            title={mat.package}
+                          >
                             {mat.package}
                           </span>
                         ) : (

@@ -944,10 +944,17 @@ export const BomView: React.FC = () => {
                           </td>
 
                           {/* 封装 */}
-                          <td className="py-2.5 px-3 font-mono font-bold text-text-muted align-top">
-                            <span className="px-1.5 py-0.2 bg-canvas border border-border-subtle rounded-[2px] text-[11px] text-text-main">
-                              {r.footprint || '-'}
-                            </span>
+                          <td className="py-2.5 px-3 font-mono font-bold text-text-muted align-top whitespace-nowrap">
+                            {r.footprint ? (
+                              <span
+                                className="inline-block whitespace-nowrap max-w-[120px] truncate align-middle px-1.5 py-0.5 bg-canvas border border-border-subtle rounded-[2px] text-[11px] text-text-main"
+                                title={r.footprint}
+                              >
+                                {r.footprint}
+                              </span>
+                            ) : (
+                              <span className="text-text-muted/60 font-mono">-</span>
+                            )}
                           </td>
 
                           {/* 用量 */}

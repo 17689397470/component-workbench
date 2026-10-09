@@ -72,10 +72,17 @@ export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) =>
                   </td>
 
                   {/* 封装 */}
-                  <td className="py-2 px-3">
-                    <span className="px-1.5 py-0.5 bg-canvas border border-border-subtle rounded-[2px] text-[11px] font-mono font-bold text-text-main">
-                      {item.package || '-'}
-                    </span>
+                  <td className="py-2 px-3 whitespace-nowrap">
+                    {item.package ? (
+                      <span
+                        className="inline-block whitespace-nowrap max-w-[120px] truncate align-middle px-1.5 py-0.5 bg-canvas border border-border-subtle rounded-[2px] text-[11px] font-mono font-bold text-text-main"
+                        title={item.package}
+                      >
+                        {item.package}
+                      </span>
+                    ) : (
+                      <span className="text-text-muted/60 font-mono">-</span>
+                    )}
                   </td>
 
                   {/* 规格 */}

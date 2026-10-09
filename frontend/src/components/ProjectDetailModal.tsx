@@ -402,8 +402,17 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
                         </td>
 
                         {/* 封装 */}
-                        <td className="py-3 px-3 font-mono text-text-muted align-top">
-                          {it.package || '-'}
+                        <td className="py-3 px-3 font-mono text-text-muted align-top whitespace-nowrap">
+                          {it.package ? (
+                            <span
+                              className="inline-block whitespace-nowrap max-w-[120px] truncate align-middle px-1.5 py-0.5 bg-canvas border border-border-subtle rounded-[2px] text-[11px] font-mono text-text-muted font-bold"
+                              title={it.package}
+                            >
+                              {it.package}
+                            </span>
+                          ) : (
+                            '-'
+                          )}
                         </td>
 
                         {/* 位号 */}
