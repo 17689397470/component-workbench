@@ -14,6 +14,7 @@ import { bomApi } from '../../api/bomApi';
 import { useToastStore } from '../../store/useToastStore';
 import { KittingMaterial } from './KittingBoxSandbox';
 import { ImmersiveKittingModal } from './ImmersiveKittingModal';
+import { ProjectMaterialDrawer } from './ProjectMaterialDrawer';
 import {
   FolderGit2,
   Lock,
@@ -28,6 +29,7 @@ import {
   Check,
   X,
   Edit2,
+  Edit3,
   RefreshCw,
   Box,
   Layers,
@@ -109,6 +111,20 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
   const [searchCandidates, setSearchCandidates] = useState<ComponentItem[]>([]);
   const [selectedComp, setSelectedComp] = useState<ComponentItem | null>(null);
   const [submittingAdd, setSubmittingAdd] = useState(false);
+
+  // 物料规格与配料纠偏抽屉状态
+  const [drawerItem, setDrawerItem] = useState<ProjectItemDetail | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const handleOpenMaterialDrawer = (mat: KittingMaterial, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (isFastBomMode || !project?.items) return;
+    const found = project.items.find((it) => it.id === mat.id);
+    if (found) {
+      setDrawerItem(found);
+      setIsDrawerOpen(true);
+    }
+  };
 
   // 加载项目详情
   const loadProjectDetail = async (id: number) => {
@@ -951,7 +967,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                   <th className="py-2.5 px-3 w-28 bg-surface">需用 / 存量</th>
                   <th className="py-2.5 px-3 w-36 bg-surface">物理货位</th>
                   <th className="py-2.5 px-3 w-24 bg-surface">状态</th>
-                  {!isFastBomMode && <th className="py-2.5 px-3 w-16 text-right bg-surface">操作</th>}
+                  {!isFastBomMode && <th className="py-2.5 px-3 w-20 text-right bg-surface">操作</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
@@ -962,15 +978,20 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                   return (
                     <tr
                       key={mat.id}
+                      onClick={() => handleOpenMaterialDrawer(mat)}
                       className={cn(
                         'hover:bg-subtle/70 transition-colors',
+                        !isFastBomMode && 'cursor-pointer',
                         mat.isPicked && 'bg-emerald-500/[0.03]'
                       )}
                     >
                       {/* 打卡复选框 */}
                       <td className="py-2.5 px-3 text-center">
                         <button
-                          onClick={() => handleTogglePick(mat.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleTogglePick(mat.id);
+                          }}
                           className={cn(
                             'p-1 rounded-[2px] border transition-colors inline-flex items-center justify-center',
                             mat.isPicked
@@ -1058,13 +1079,22 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                       {/* 操作 */}
                       {!isFastBomMode && (
                         <td className="py-2.5 px-3 text-right">
-                          <button
-                            onClick={(e) => handleRemoveItem(mat.id as number, e)}
-                            className="p-1 text-text-muted hover:text-danger rounded"
-                            title="删除此物料"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={(e) => handleOpenMaterialDrawer(mat, e)}
+                              className="p-1 text-text-muted hover:text-accent hover:bg-accent/10 rounded transition-colors"
+                              title="修改规格与配料"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={(e) => handleRemoveItem(mat.id as number, e)}
+                              className="p-1 text-text-muted hover:text-danger hover:bg-danger/10 rounded transition-colors"
+                              title="删除此物料"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </td>
                       )}
                     </tr>
@@ -1141,6 +1171,21 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
           </button>
         </div>
       </Modal>
+
+      {/* 4. 物料规格与配料纠偏抽屉 */}
+      <ProjectMaterialDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        projectId={projectId as number}
+        targetQty={project?.target_qty || 1}
+        item={drawerItem}
+        onSaved={() => {
+          if (projectId) {
+            loadProjectDetail(projectId);
+            onProjectUpdated?.();
+          }
+        }}
+      />
     </div>
   );
 };

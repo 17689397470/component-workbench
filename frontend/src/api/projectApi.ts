@@ -61,8 +61,10 @@ export const projectApi = {
     });
   },
 
-  // 8. 更新项目元器件用量
+  // 8. 更新项目元器件用量、封装、规格与关联库存
   async updateItem(projectId: number, itemId: number, data: {
+    part_name?: string;
+    package?: string;
     unit_demand_qty?: number;
     designators?: string;
     component_id?: number | null;
@@ -71,6 +73,18 @@ export const projectApi = {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  },
+
+  // 8.1 智能寻找工坊可用替代料
+  async getAlternatives(projectId: number, itemId: number): Promise<{
+    success: boolean;
+    data: {
+      item: any;
+      candidates: any[];
+      count: number;
+    };
+  }> {
+    return apiRequest(`/api/projects/${projectId}/items/${itemId}/alternatives`);
   },
 
   // 9. 一键智能预锁项目现货库存
