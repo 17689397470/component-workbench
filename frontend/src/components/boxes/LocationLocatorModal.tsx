@@ -184,8 +184,8 @@ export const LocationLocatorModal: React.FC<LocationLocatorModalProps> = ({
                 i
               </div>
               <div>
-                工坊拣料提示：请在现实中的<strong>【{boxName}】</strong>柜体中，找到高亮标识的{' '}
-                <strong className="text-accent font-mono">{targetSlot || '散料袋'}</strong> 抽屉。
+                货位指引：前往<strong>【{boxName}】</strong>，取出高亮标记的{' '}
+                <strong className="text-accent font-mono">{targetSlot || '散料袋'}</strong>。
               </div>
             </div>
           </div>

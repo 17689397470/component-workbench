@@ -46,18 +46,6 @@ import {
 import { Modal } from '../ui/Modal';
 import { cn } from '../../lib/utils';
 
-// 嘉立创EDA标准格式示例数据
-const SAMPLE_BOM_TEXT = `器件\t位号\t封装\t数量\t立创编号
-100nF 50V\tC1, C2, C3, C4\t0603\t4\tC2057
-10µF 16V\tC5, C6\t0805\t2\tC15849
-10k 1%\tR1, R2, R3, R4\t0805\t4\tC17414
-1k 1%\tR5, R6\t0805\t2\tC17513
-4.7k 5%\tR7\t0805\t1\t
-AMS1117-3.3\tU1\tSOT-223\t1\tC6186
-CH340C\tU2\tSOP-16\t1\tC84681
-STM32F103C8T6\tU3\tLQFP-48\t1\tC8734
-SS34\tD1\tSMA\t1\tC8678`;
-
 interface ProjectWorkspaceProps {
   projectId: number | null;
   onProjectUpdated?: () => void;
@@ -738,13 +726,15 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
                 <ClipboardPaste className="w-4 h-4 text-accent" />
                 <span>粘贴或导入 BOM 数据</span>
               </div>
-              <button
-                onClick={() => setPasteText(SAMPLE_BOM_TEXT)}
-                className="text-xs text-accent hover:underline font-mono font-bold flex items-center gap-1"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>填入立创EDA样例</span>
-              </button>
+              {pasteText && (
+                <button
+                  type="button"
+                  onClick={() => setPasteText('')}
+                  className="text-xs text-text-muted hover:text-text-main flex items-center gap-1 transition-colors"
+                >
+                  <span>清空输入</span>
+                </button>
+              )}
             </div>
 
             <textarea

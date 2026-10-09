@@ -387,24 +387,6 @@ export const ComponentEntryDrawer: React.FC = () => {
                   {isParsing ? '解析中' : '解析'}
                 </button>
               </div>
-
-              {/* 快捷示例药丸 */}
-              <div className="flex items-center gap-1.5 overflow-x-auto text-[10px] text-text-dim no-scrollbar pt-0.5">
-                <span>示例:</span>
-                {['0805 10k 100只', '0603 100nF 50V', 'C2057 50只', 'AMS1117-3.3 10片'].map((ex) => (
-                  <button
-                    key={ex}
-                    type="button"
-                    onClick={() => {
-                      setRawText(ex);
-                      handleParseText(ex);
-                    }}
-                    className="px-2 py-0.5 bg-subtle hover:bg-surface-hover rounded-md border border-border-subtle transition-colors shrink-0"
-                  >
-                    {ex}
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* 同款物料查重提示卡片 */}
@@ -630,16 +612,15 @@ export const ComponentEntryDrawer: React.FC = () => {
             <div className="space-y-1.5">
               <label className="text-[11px] font-semibold text-text-muted flex items-center justify-between">
                 <span>粘贴多行元器件文本 (每行一件物料)</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const sample = `0805 10k 1% 100只\n0805 1k 1% 100只\n0603 100nF 50V 50只\nAMS1117-3.3 SOT-223 10片\nC2057 20只`;
-                    setBatchRawText(sample);
-                  }}
-                  className="text-[10px] text-accent hover:underline"
-                >
-                  填入批量示例
-                </button>
+                {batchRawText && (
+                  <button
+                    type="button"
+                    onClick={() => setBatchRawText('')}
+                    className="text-[10px] text-text-muted hover:text-text-main transition-colors"
+                  >
+                    清空输入
+                  </button>
+                )}
               </label>
               <textarea
                 rows={7}

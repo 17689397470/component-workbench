@@ -459,9 +459,6 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
                 x{targetQty}套 (板)
               </span>
             </div>
-            <div className="text-[11px] font-mono text-text-muted mt-0.5 hidden sm:block">
-              操作提示：按 <kbd className="px-1 py-0.2 bg-canvas border rounded text-text-main font-bold">空格</kbd> 取料打卡并下一项，按 <kbd className="px-1 py-0.2 bg-canvas border rounded text-text-main font-bold">↑ / ↓</kbd> 切换物料，按 <kbd className="px-1 py-0.2 bg-canvas border rounded text-text-main font-bold">ESC</kbd> 退出
-            </div>
           </div>
         </div>
 
@@ -964,14 +961,14 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
                   </span>
                 </div>
 
-                <div className="p-3 bg-canvas border border-dashed border-border-subtle rounded-[2px] text-xs font-mono text-text-muted leading-relaxed max-w-md mx-auto mb-5 text-left">
+                <div className="p-3 bg-canvas border border-dashed border-border-subtle rounded-[2px] text-xs font-mono text-text-muted leading-relaxed max-w-md mx-auto mb-5 text-center">
                   {activeStep.isUnassigned ? (
-                    <p className="text-amber-800 dark:text-amber-300 font-bold">
-                      ⚠️ 此物料暂未登记具体存放货位。请在备料台查找现货，或记录为待采购缺料。取好后可直接按空格标记进入下一步。
+                    <p className="text-amber-800 dark:text-amber-300 font-medium">
+                      未分配格位 · 请在备料台取料或记录为待采购，确认后按空格键继续
                     </p>
                   ) : (
-                    <p className="text-text-main font-bold">
-                      💡 此物料存放于 <strong className="text-accent">【{activeStep.boxName}】</strong> 的盒内散料袋（无需拉抽屉）。请直接拉开收纳盒并寻找对应标牌的料袋。
+                    <p className="text-text-main font-medium">
+                      存放于 <strong className="text-accent font-bold">【{activeStep.boxName}】</strong> 盒内散料袋，取出后按空格键确认
                     </p>
                   )}
                 </div>

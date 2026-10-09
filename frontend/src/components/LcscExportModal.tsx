@@ -151,7 +151,7 @@ export const LcscExportModal: React.FC<LcscExportModalProps> = ({
           {activeTab === 'lcsc' ? (
             <div>
               <div className="mb-2 text-[11px] text-text-muted">
-                💡 <strong>使用指南:</strong> 点击上方【复制立创编码】，打开「立创商城」电脑网页端，进入购物车点击「BOM配单/批量加入购物车」，直接粘贴即可将所有缺料一键加入购物车！
+                复制后可直接在立创商城「BOM配单/批量购物车」中按 Ctrl+V 粘贴一键导入缺料。
               </div>
               <textarea
                 readOnly
@@ -163,7 +163,7 @@ export const LcscExportModal: React.FC<LcscExportModalProps> = ({
           ) : (
             <div>
               <div className="mb-2 text-[11px] text-text-muted">
-                💡 包含所有缺货物料的规格型号、封装、采购差额与位号，方便发给供应商报价或淘宝逐个采购：
+                包含所有缺料的规格型号、封装、差额与位号，可直接复制发给供应商询价或采购：
               </div>
               <textarea
                 readOnly

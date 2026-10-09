@@ -280,6 +280,72 @@ app.post('/api/components', async (req, res) => {
   }
 });
 
+// 6.1 获取低库存与告警清单 (静态路由必须优先于 /:id)
+app.get('/api/components/low-stock', async (req, res) => {
+  try {
+    const list = await db.getLowStockList();
+    res.json({ success: true, count: list.length, data: list });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6.2 导出待补货采购清单 (Excel)
+app.get('/api/components/export-replenishment', async (req, res) => {
+  try {
+    const list = await db.getLowStockList();
+    const rows = list.map(item => ({
+      '型号/品名': item.name,
+      '分类': item.category,
+      '封装': item.package || '',
+      '存放位置': item.location || '',
+      '当前库存': item.quantity,
+      '安全库存': item.effective_min_stock,
+      '建议补货数': Math.max(item.shortage_qty, item.effective_min_stock * 2),
+      '立创编号': item.lcsc_part || '',
+      '立创搜索': item.lcsc_part ? `https://item.szlcsc.com/${item.lcsc_part.replace(/[^0-9]/g, '')}.html` : `https://so.szlcsc.com/global.html?k=${encodeURIComponent(item.name)}`,
+      '备注': item.notes || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '待补货清单');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename="replenishment_list.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 6.3 导出全部数据为 Excel 或 JSON
+app.get('/api/components/export', async (req, res) => {
+  try {
+    const format = req.query.format || 'excel';
+    const list = await db.exportAll();
+
+    if (format === 'json') {
+      res.setHeader('Content-Disposition', 'attachment; filename="components_backup.json"');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      return res.send(JSON.stringify(list, null, 2));
+    }
+
+    // 默认 Excel 导出
+    const ws = XLSX.utils.json_to_sheet(list);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '库存清单');
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Disposition', 'attachment; filename="components_export.xlsx"');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buf);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 6.5 获取单个元器件详情
 app.get('/api/components/:id', async (req, res) => {
   try {
@@ -613,16 +679,6 @@ app.get('/api/components/:id/locator', async (req, res) => {
   }
 });
 
-// 13. 获取低库存与告警清单
-app.get('/api/components/low-stock', async (req, res) => {
-  try {
-    const list = await db.getLowStockList();
-    res.json({ success: true, count: list.length, data: list });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
 // 14. 查询出入库流水日志
 app.get('/api/logs', async (req, res) => {
   try {
@@ -632,62 +688,6 @@ app.get('/api/logs', async (req, res) => {
       limit: limit ? parseInt(limit, 10) : 50
     });
     res.json({ success: true, count: logs.length, data: logs });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 15. 导出待补货采购清单 (Excel)
-app.get('/api/components/export-replenishment', async (req, res) => {
-  try {
-    const list = await db.getLowStockList();
-    const rows = list.map(item => ({
-      '型号/品名': item.name,
-      '分类': item.category,
-      '封装': item.package || '',
-      '存放位置': item.location || '',
-      '当前库存': item.quantity,
-      '安全库存': item.effective_min_stock,
-      '建议补货数': Math.max(item.shortage_qty, item.effective_min_stock * 2),
-      '立创编号': item.lcsc_part || '',
-      '立创搜索': item.lcsc_part ? `https://item.szlcsc.com/${item.lcsc_part.replace(/[^0-9]/g, '')}.html` : `https://so.szlcsc.com/global.html?k=${encodeURIComponent(item.name)}`,
-      '备注': item.notes || ''
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '待补货清单');
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-    res.setHeader('Content-Disposition', 'attachment; filename="replenishment_list.xlsx"');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buf);
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// 11. 导出全部数据为 Excel 或 JSON
-app.get('/api/components/export', async (req, res) => {
-  try {
-    const format = req.query.format || 'excel';
-    const list = await db.exportAll();
-
-    if (format === 'json') {
-      res.setHeader('Content-Disposition', 'attachment; filename="components_backup.json"');
-      res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      return res.send(JSON.stringify(list, null, 2));
-    }
-
-    // 默认 Excel 导出
-    const ws = XLSX.utils.json_to_sheet(list);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '库存清单');
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-
-    res.setHeader('Content-Disposition', 'attachment; filename="components_export.xlsx"');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buf);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
