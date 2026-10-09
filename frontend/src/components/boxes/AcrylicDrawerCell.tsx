@@ -47,19 +47,19 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
           ? 'bg-surface hover:bg-surface-hover border-border-subtle shadow-xs hover:border-border-hover'
           : 'bg-canvas/80 hover:bg-surface border-dashed border-border-subtle hover:border-accent'
       } ${
-        // 寻料沙盘亮灯指示环 (核心发光呼吸特效)
+        // 寻料沙盘亮灯指示环 (用户核心体验：工程所需抽屉全部亮起指示光圈，当前焦点抽屉特写放大呼吸)
         kittingStatus === 'FOCUSED'
-          ? 'ring-4 ring-accent border-accent bg-accent/20 scale-[1.04] shadow-xl shadow-accent/40 z-30 animate-pulse'
+          ? 'ring-4 ring-accent border-accent bg-accent/20 scale-[1.05] shadow-xl shadow-accent/40 z-30 animate-pulse'
           : kittingStatus === 'SUFFICIENT'
-          ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-500/15 shadow-sm shadow-emerald-500/20'
+          ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-500/15 shadow-sm shadow-emerald-500/20 z-10'
           : kittingStatus === 'SHORTAGE'
-          ? 'ring-2 ring-amber-500 border-amber-500 bg-amber-500/15 shadow-sm shadow-amber-500/20'
+          ? 'ring-2 ring-amber-500 border-amber-500 bg-amber-500/15 shadow-sm shadow-amber-500/20 z-10'
           : kittingStatus === 'SUBSTITUTE'
-          ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/15 shadow-sm shadow-blue-500/20'
+          ? 'ring-2 ring-blue-500 border-blue-500 bg-blue-500/15 shadow-sm shadow-blue-500/20 z-10'
           : ''
       } ${
-        // 已取件状态置灰压暗
-        isPicked ? 'opacity-55 saturate-50 hover:opacity-100' : ''
+        // 已取件状态轻微弱化
+        isPicked && kittingStatus !== 'FOCUSED' ? 'opacity-65 saturate-70 hover:opacity-100' : ''
       } ${
         // 激活选中态
         isSelected && !kittingStatus
@@ -71,8 +71,9 @@ export const AcrylicDrawerCell: React.FC<AcrylicDrawerCellProps> = ({
           ? 'ring-2 ring-accent border-accent bg-accent/20 shadow-sm'
           : ''
       } ${
-        isGuidedDimmed && kittingStatus !== 'FOCUSED'
-          ? 'opacity-15 grayscale-[0.6] hover:opacity-75 transition-all duration-300'
+        // 非工程相关抽屉：安静淡化作为环境参照物，绝不喧宾夺主造成眩晕
+        !kittingStatus && isGuidedDimmed
+          ? 'opacity-35 hover:opacity-85 transition-opacity duration-200'
           : isSearchDimmed
           ? 'opacity-40 hover:opacity-100'
           : ''
