@@ -311,7 +311,7 @@ export const StorageBoxGridModal: React.FC<StorageBoxGridModalProps> = ({
 
         {/* 正在分配格位的高亮提示条 */}
         {assigningComp && (
-          <div className="p-3 bg-accent/10 border border-accent/30 rounded-2xl flex items-center justify-between text-xs animate-pulse">
+          <div className="p-3 bg-accent/10 border border-accent/30 rounded-2xl flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-accent" />
               <span className="text-text-main">

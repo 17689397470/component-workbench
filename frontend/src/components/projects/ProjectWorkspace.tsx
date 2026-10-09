@@ -721,11 +721,11 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
             {totalCount > 0 && (
               <button
                 onClick={() => setIsKittingSandboxOpen(true)}
-                className="px-4 py-1.5 text-xs font-black bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-sm flex items-center gap-2 transition-all hover:scale-[1.02] active:scale-95 animate-pulse"
-                title="全屏进入 2D 亚克力收纳柜大矩阵现场拿料"
+                className="px-3.5 py-1.5 text-xs font-bold bg-accent text-white hover:bg-accent-hover rounded-[2px] shadow-xs flex items-center gap-1.5 transition-colors"
+                title="进入 2D 亚克力收纳柜大矩阵现场拿料沙盘"
               >
-                <Target className="w-4 h-4" />
-                <span>🚀 开始现场配料 / 进入拿料沙盘 ({pickedCount}/{totalCount})</span>
+                <Target className="w-3.5 h-3.5" />
+                <span>进入配料沙盘 ({pickedCount}/{totalCount})</span>
               </button>
             )}
           </div>

@@ -374,7 +374,7 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
 
       {/* 2. 状态提示条：正在散料划入格位 */}
       {assigningComp && (
-        <div className="px-4 py-2.5 bg-emerald-500/10 border-b border-emerald-500/30 flex items-center justify-between text-xs sm:text-sm animate-pulse shrink-0">
+        <div className="px-4 py-2.5 bg-emerald-500/10 border-b border-emerald-500/30 flex items-center justify-between text-xs sm:text-sm shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <Sparkles className="w-4 h-4 text-emerald-500 shrink-0" />
             <span className="text-text-main truncate">
