@@ -783,7 +783,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         )}
 
         {/* B. 清单搜索与过滤工具栏 */}
-        <div className="px-4 py-2.5 bg-canvas/40 border-b border-border-subtle flex items-center justify-between gap-3 shrink-0">
+        <div className="px-4 py-2.5 bg-surface border-b border-border-subtle flex items-center justify-between gap-3 shrink-0">
           {/* 紧凑搜索框 */}
           <div className="relative flex-1 max-w-sm">
             <Search className="w-3.5 h-3.5 text-text-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -930,7 +930,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
         )}
 
         {/* D. 全宽工规物料清单表格 (清晰通透、字号大、对齐规整) */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto bg-surface">
           {filteredMaterials.length === 0 ? (
             <div className="py-20 text-center text-xs text-text-muted flex flex-col items-center gap-2">
               <Box className="w-10 h-10 text-border-hover stroke-[1.5]" />
@@ -942,16 +942,16 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
             </div>
           ) : (
             <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-canvas/80 sticky top-0 z-10 border-b border-border-subtle font-mono text-[11px] text-text-muted uppercase">
-                <tr>
-                  <th className="py-2 px-3 w-10 text-center">取料</th>
-                  <th className="py-2 px-3">物料型号 / 规格</th>
-                  <th className="py-2 px-3 w-28 min-w-[90px]">封装</th>
-                  <th className="py-2 px-3">电路位号</th>
-                  <th className="py-2 px-3 w-28">需用 / 存量</th>
-                  <th className="py-2 px-3 w-36">物理货位</th>
-                  <th className="py-2 px-3 w-24">状态</th>
-                  {!isFastBomMode && <th className="py-2 px-3 w-16 text-right">操作</th>}
+              <thead className="sticky top-0 z-20 font-mono text-[11px] text-text-muted uppercase shadow-xs">
+                <tr className="border-b border-border-subtle bg-surface">
+                  <th className="py-2.5 px-3 w-10 text-center bg-surface">取料</th>
+                  <th className="py-2.5 px-3 bg-surface">物料型号 / 规格</th>
+                  <th className="py-2.5 px-3 w-28 min-w-[90px] bg-surface">封装</th>
+                  <th className="py-2.5 px-3 bg-surface">电路位号</th>
+                  <th className="py-2.5 px-3 w-28 bg-surface">需用 / 存量</th>
+                  <th className="py-2.5 px-3 w-36 bg-surface">物理货位</th>
+                  <th className="py-2.5 px-3 w-24 bg-surface">状态</th>
+                  {!isFastBomMode && <th className="py-2.5 px-3 w-16 text-right bg-surface">操作</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle">
