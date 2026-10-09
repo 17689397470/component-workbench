@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { StorageBoxSummary, BoxGridResponseData, BoxGridSlot } from '../../types/box';
 import { boxApi } from '../../api/boxApi';
 import { AcrylicDrawerCell } from '../boxes/AcrylicDrawerCell';
@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Filter,
   Layers,
+  CheckCircle2,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { KittingMaterial } from './KittingBoxSandbox';
@@ -112,6 +113,18 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
 
   // 聚光灯防眩微调: 默认开启 (非焦点抽屉适当压暗，焦点抽屉强烈发光放大)
   const [isSpotlightMode, setIsSpotlightMode] = useState<boolean>(true);
+
+  // 当前选中行的 DOM 引用，用于键盘操作与打卡时自动平滑滚动对齐
+  const activeRowRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (activeRowRef.current) {
+      activeRowRef.current.scrollIntoView({
+        block: 'nearest',
+        behavior: 'smooth',
+      });
+    }
+  }, [selectedStepIndex]);
 
   // 1. 获取所有物理收纳盒
   const fetchBoxes = async () => {
@@ -602,16 +615,21 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
                       return (
                         <div
                           key={step.id}
+                          ref={isActive ? activeRowRef : null}
                           onClick={() => selectStepByIndex(step.index)}
                           className={cn(
-                            'p-2.5 flex items-start gap-2.5 cursor-pointer transition-all border-l-4 text-left',
+                            'p-2.5 pl-3.5 flex items-start gap-2.5 cursor-pointer transition-all text-left relative',
                             isActive
-                              ? 'bg-accent/[0.08] border-l-accent shadow-xs'
+                              ? 'bg-accent/15 ring-1 ring-accent/60 shadow-xs z-10'
                               : isPicked
-                              ? 'bg-canvas/50 border-l-emerald-600 opacity-60 hover:opacity-100 hover:bg-canvas'
-                              : 'bg-surface border-l-transparent hover:bg-surface-hover'
+                              ? 'bg-canvas/40 opacity-60 hover:opacity-100 hover:bg-canvas'
+                              : 'bg-surface hover:bg-surface-hover'
                           )}
                         >
+                          {/* 焦点物理指示指示标 (小三角指示标，告别假AI左侧色条) */}
+                          {isActive && (
+                            <span className="absolute left-1 top-3.5 w-1 h-3 rounded-full bg-accent animate-pulse" />
+                          )}
                           {/* 勾选框 */}
                           <button
                             type="button"
@@ -1033,6 +1051,30 @@ export const ImmersiveKittingModal: React.FC<ImmersiveKittingModalProps> = ({
                 <Box className="w-12 h-12 stroke-[1.2] mb-3 opacity-40" />
                 <span>当前收纳柜暂未配置网格抽屉</span>
               </div>
+            )}
+          </div>
+
+          {/* 4. 底部快捷操作与完工状态栏 */}
+          <div className="py-2 px-4 border-t border-border-subtle/80 bg-surface/70 flex items-center justify-between text-[11px] font-mono text-text-muted shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+              <span>
+                按 <kbd className="px-1.5 py-0.5 bg-canvas border rounded text-text-main font-bold shadow-2xs">空格</kbd> 确认取料并下一项
+              </span>
+              <span>·</span>
+              <span>
+                按 <kbd className="px-1.5 py-0.5 bg-canvas border rounded text-text-main font-bold shadow-2xs">↑ / ↓</kbd> 切换物料
+              </span>
+              <span>·</span>
+              <span>
+                按 <kbd className="px-1.5 py-0.5 bg-canvas border rounded text-text-main font-bold shadow-2xs">ESC</kbd> 退出工作台
+              </span>
+            </div>
+
+            {isAllPicked && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-black flex items-center gap-1.5 animate-in fade-in">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>🎉 本工程物料已全部配齐！</span>
+              </span>
             )}
           </div>
         </div>
