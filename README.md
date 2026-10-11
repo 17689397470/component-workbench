@@ -1,88 +1,108 @@
-# component-workbench
+# ⚡ BOM Workbench (元器件与BOM工程工作台)
 
-> 个人电子元器件库存管理 & BOM 查重工作台
+> 专为电子工程师、硬件创客与实验室打造的现代化元器件库存管理、物理收纳盒透视与 BOM 智能配料系统。
 
-一个专为电子爱好者 / 创客 / 工程师打造的本地 Web 应用，帮你管理元器件库存、导入淘宝订单、核查 BOM 缺料、管理制作项目套料，支持手机扫码访问。
-
----
-
-## ✨ 功能亮点
-
-| 模块 | 说明 |
-|------|------|
-| 📦 **库存管理** | 元器件 CRUD、快速增减库存、按分类/位置搜索、低库存告警 |
-| 📋 **BOM 核查** | 上传 EasyEDA / 嘉立创导出的 BOM 文件，自动与库存比对，生成拣货清单 & 缺料清单，一键出库扣减 |
-| 🛒 **淘宝订单导入** | 解析淘宝电商订单 Excel，智能识别元器件规格并合并入库，支持批次回滚 |
-| 🗂️ **项目套料管理** | 创建制作项目、预锁库存、完工消库、导出项目缺料采购清单 |
-| 📦 **收纳盒管理** | 按存放盒生成二维码标签，手机扫码即可查看盒内物料 |
-| 🔍 **立创官方查询** | 在线查询嘉立创商城物料规格，快速录入 |
-| 📱 **局域网访问** | 启动时自动输出局域网二维码，手机可直接扫码访问 |
+[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-green.svg)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![SQLite](https://img.shields.io/badge/SQLite-WAL%20Mode-003B57.svg)](https://www.sqlite.org/)
 
 ---
 
-## 🚀 快速开始
+## 📖 核心文档导航
 
-### 环境要求
+- 📘 **[全功能使用手册 (USER_GUIDE.md)](./USER_GUIDE.md)**：包含盲打速记规则、物理收纳盒 2.0 网格投射、BOM 四色查重、手机扫码 OCR 拍标签的深度图文操作指南。
+- 🚀 **[生产部署指南 (DEPLOY.md)](./DEPLOY.md)**：包含 Docker Compose 容器化编排、腾讯云多项目共存端口规划与一键部署脚本。
 
-- [Node.js](https://nodejs.org) >= 16
+---
 
-### 安装 & 启动
+## ✨ 核心特性
 
+- 🗄️ **物理收纳空间 2.0 (Boxes 2.0)**：
+  - 1:1 投射 3×4、4×6 零件柜等二维网格矩阵（绿色占用、灰白空格）；
+  - 支持贴片阻容样品本分页与散料随手盒，点击空格位即可将未分配散料一键绑定入格。
+- ⚡ **硬件级参数智能解构引擎**：
+  - **中置单位法识别**：输入 `4u7` $\to$ 4.7µF，`2R2` $\to$ 2.2Ω；
+  - **工业容差字母代码转译**：准确识别 `104K` 中的 `K` 是 $\pm10\%$ 而非千欧；
+  - **介质材质自动剥离**：自动抽离 `X7R`、`C0G`、`金属膜` 为固有规格；
+  - **半导体知识图谱补全**：输入 `AO3400` 或 `AMS1117-3.3` 自动补齐极性与耐压电流。
+  - **工业防呆歧义拦截**：纯数字 `104` 主动拦截提示电容/电阻歧义，绝不盲目瞎猜。
+- 🔍 **立创官方直连与在线校准**：
+  - 录入立创 C 编号（如 `C2057`）秒级调取官方数据手册 PDF、原厂规格与高清元件图。
+- 📋 **BOM 四色查重与智能拣料单**：
+  - 导入 EasyEDA / KiCad / Altium 导出的 BOM 表格，自动计算四色状态：
+    🟩 完全现货（免买）｜ 🟦 建议替代（耐压/封装兼容复用）｜ 🟨 需补库存（差额）｜ 🟥 必须采购；
+  - **物理拣料清单 (Pick List)**：按收纳柜真实物理抽屉位置自动分组，照单取料效率提升 5 倍；
+  - **工程套料预扣**：支持制作项目开工锁库 (Lock) 与焊接完工核销 (Complete)。
+- 📱 **多模态移动端交互**：
+  - 手机扫立创元器件塑料袋二维码秒级录入；
+  - 拍贴片胶带剪切条/芯片微距标签 OCR 智能识别。
+- 🔒 **公网安全与数据无忧**：
+  - 支持通过环境变量 `ACCESS_PASSWORD` 开启访问密码保护，初次验证后浏览器自动保持令牌；
+  - SQLite WAL 并发与抗掉电保护，支持本地自动快照保存与一键秒级回滚。
+
+---
+
+## 🚀 本地快速启动
+
+### 方式 A：Windows 一键启动
+双击项目根目录下的 **`start.bat`**，脚本将自动检测依赖并在浏览器中打开：
+👉 `http://localhost:3000`
+
+### 方式 B：命令行启动
 ```bash
-# 克隆仓库
-git clone https://github.com/你的用户名/component-workbench.git
-cd component-workbench
-
-# 安装依赖
+# 1. 安装依赖
 npm install
+npm --prefix frontend install
 
-# 启动服务
+# 2. 构建前端
+npm run build
+
+# 3. 启动服务
 npm start
-# 或 Windows 双击 start.bat
 ```
-
-浏览器访问 [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## 📁 项目结构
+## 🌐 服务器生产环境部署 (Docker)
+
+在服务器（如腾讯云 Linux）上直接执行：
+```bash
+# 1. 克隆代码
+git clone https://gitee.com/yan-chaoyong/component-workbench.git /root/bom
+cd /root/bom
+
+# 2. 一键启动
+chmod +x deploy.sh update.sh
+./deploy.sh
+```
+*更多生产配置、端口避让与日常运维命令，详见 [DEPLOY.md](./DEPLOY.md)。*
+
+---
+
+## 📁 目录结构
 
 ```
-component-workbench/
-├── server.js            # Express 后端入口（35+ RESTful API）
-├── start.bat            # Windows 一键启动脚本
+bom/
+├── frontend/             # 现代现代化前端 (React 18 + Tailwind CSS + Lucide)
 ├── lib/
-│   ├── db.js            # SQLite 数据库操作层
-│   ├── parser.js        # 元器件文本智能解析
-│   ├── bomMatcher.js    # BOM 文件解析与库存比对
-│   ├── lcscService.js   # 嘉立创商城在线查询
-│   ├── taobaoParser.js  # 淘宝/电商订单 Excel 解析
-│   └── taobaoRules.js   # 淘宝解析规则 / 黑白名单
-├── public/
-│   ├── index.html       # 前端单页应用入口
-│   ├── css/style.css    # 样式
-│   └── js/
-│       ├── app.js           # 主应用逻辑
-│       ├── bomView.js       # BOM 核查视图
-│       ├── boxesView.js     # 收纳盒视图
-│       ├── projectsView.js  # 项目管理视图
-│       └── scanner.js       # 二维码扫描
-├── test/                # 测试脚本
-└── data/                # SQLite 数据库（本地存储，不提交）
+│   ├── db.js             # SQLite WAL 存储持久层与备份快照引擎
+│   ├── parser.js         # 硬件参数深度解构与防呆状态机
+│   ├── bomMatcher.js     # BOM 四色比对与按盒子分组拣料引擎
+│   ├── lcscService.js    # 立创官方元器件查询与混合兜底网关
+│   └── taobaoParser.js   # 电商订单表格批量解构
+├── public/               # 轻量级原生回退页面与静态资源
+├── test/                 # 自动化全链路集成与单元测试 (100% 绿灯)
+├── Dockerfile            # 生产级多阶段容器镜像定义
+├── docker-compose.yml    # 容器编排与宿主机数据卷映射
+├── deploy.sh             # 服务器首次自动化安装拉起脚本
+├── update.sh             # 服务器日常一键拉取代码与平滑重启脚本
+├── USER_GUIDE.md         # 详细全功能使用手册
+└── DEPLOY.md             # 生产运维部署指南
 ```
 
 ---
 
-## 🛠️ 技术栈
+## 📄 开源许可
 
-- **后端**：Node.js + Express
-- **数据库**：SQLite（`sqlite3`）
-- **前端**：原生 HTML / CSS / JavaScript（无框架依赖）
-- **文件处理**：xlsx（Excel 读写）、multer（文件上传）
-- **工具**：qrcode（二维码生成）
-
----
-
-## 📄 License
-
-ISC
+本项目遵循 [ISC License](LICENSE)。
