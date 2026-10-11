@@ -24,7 +24,7 @@ import {
 import { cn } from '../../lib/utils';
 
 export const ComponentEntryDrawer: React.FC = () => {
-  const { isEntryDrawerOpen, setEntryDrawerOpen, fetchComponents, fetchStats, components } =
+  const { isEntryDrawerOpen, defaultEntryLocation, setEntryDrawerOpen, fetchComponents, fetchStats, components } =
     useInventoryStore();
   const { showToast } = useToastStore();
   const nameInputRef = useRef<HTMLInputElement | null>(null);
@@ -44,6 +44,13 @@ export const ComponentEntryDrawer: React.FC = () => {
   const [notes, setNotes] = useState('');
   const [lcscPart, setLcscPart] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // 当外部传入默认收纳位置时自动应用
+  useEffect(() => {
+    if (isEntryDrawerOpen && defaultEntryLocation) {
+      setLocation(defaultEntryLocation);
+    }
+  }, [isEntryDrawerOpen, defaultEntryLocation]);
 
   // 官方立创反查数据
   const [officialData, setOfficialData] = useState<any>(null);
@@ -193,6 +200,7 @@ export const ComponentEntryDrawer: React.FC = () => {
       showToast(`✔ 成功录入: ${name} x${quantity}`, 'success');
       fetchComponents();
       fetchStats();
+      window.dispatchEvent(new CustomEvent('GLOBAL_INVENTORY_DATA_CHANGED'));
 
       if (keepNext) {
         // 保留 location 和 category，清空具体物料
@@ -227,6 +235,7 @@ export const ComponentEntryDrawer: React.FC = () => {
       showToast(`✔ 已为「${duplicateMatch.name}」追加 +${quantity} 件 (新余量: ${duplicateMatch.quantity + quantity})`, 'success');
       fetchComponents();
       fetchStats();
+      window.dispatchEvent(new CustomEvent('GLOBAL_INVENTORY_DATA_CHANGED'));
       setEntryDrawerOpen(false);
     } catch (err: any) {
       showToast('追加失败: ' + err.message, 'error');
@@ -274,6 +283,7 @@ export const ComponentEntryDrawer: React.FC = () => {
       showToast(`✔ 成功将 ${batchItems.length} 种物料批量入库并合并！`, 'success');
       fetchComponents();
       fetchStats();
+      window.dispatchEvent(new CustomEvent('GLOBAL_INVENTORY_DATA_CHANGED'));
       setBatchItems([]);
       setBatchRawText('');
       setEntryDrawerOpen(false);

@@ -16,6 +16,7 @@ interface InventoryState {
   dashboardCollapsed: boolean;
   selectedComponentId: number | null;
   isEntryDrawerOpen: boolean;
+  defaultEntryLocation: string;
   isTaobaoModalOpen: boolean;
   isBackupModalOpen: boolean;
 
@@ -31,7 +32,7 @@ interface InventoryState {
   toggleGridDensity: () => void;
   toggleDashboardCollapsed: () => void;
   setSelectedComponentId: (id: number | null) => void;
-  setEntryDrawerOpen: (open: boolean) => void;
+  setEntryDrawerOpen: (open: boolean, defaultLocation?: string) => void;
   setTaobaoModalOpen: (open: boolean) => void;
   setBackupModalOpen: (open: boolean) => void;
   adjustQuantity: (id: number, delta: number) => Promise<void>;
@@ -55,6 +56,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
     dashboardCollapsed: false,
     selectedComponentId: null,
     isEntryDrawerOpen: false,
+    defaultEntryLocation: '',
     isTaobaoModalOpen: false,
     isBackupModalOpen: false,
 
@@ -130,7 +132,8 @@ export const useInventoryStore = create<InventoryState>((set, get) => {
     },
 
     setSelectedComponentId: (id) => set({ selectedComponentId: id }),
-    setEntryDrawerOpen: (open) => set({ isEntryDrawerOpen: open }),
+    setEntryDrawerOpen: (open, defaultLocation = '') =>
+      set({ isEntryDrawerOpen: open, defaultEntryLocation: defaultLocation }),
     setTaobaoModalOpen: (open) => set({ isTaobaoModalOpen: open }),
     setBackupModalOpen: (open) => set({ isBackupModalOpen: open }),
 

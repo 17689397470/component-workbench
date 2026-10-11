@@ -5,6 +5,13 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+
+const testDbPath = path.join(__dirname, '..', 'data', 'test_backup_sandbox.db');
+process.env.DB_PATH = testDbPath;
+[testDbPath, testDbPath + '-wal', testDbPath + '-shm'].forEach((f) => {
+  try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+});
+
 const db = require('../lib/db');
 
 async function runTests() {
@@ -100,12 +107,23 @@ async function runTests() {
     }
   } catch (e) {}
 
+  await db.closeDb();
+  [testDbPath, testDbPath + '-wal', testDbPath + '-shm'].forEach((f) => {
+    try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+  });
+
   console.log('\n========================================================');
   console.log('🎉 备份、快照与数据安全恢复全部测试 100% 通过！');
   console.log('========================================================\n');
 }
 
-runTests().catch(err => {
+runTests().catch(async (err) => {
   console.error('测试失败:', err);
+  try {
+    await db.closeDb();
+    [testDbPath, testDbPath + '-wal', testDbPath + '-shm'].forEach((f) => {
+      try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+    });
+  } catch (e) {}
   process.exit(1);
 });

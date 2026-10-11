@@ -5,8 +5,8 @@ import { useToastStore } from '../store/useToastStore';
 import { useInventoryStore } from '../store/useInventoryStore';
 import { StorageBoxConfigModal } from '../components/boxes/StorageBoxConfigModal';
 import { StorageBoxLabelModal } from '../components/boxes/StorageBoxLabelModal';
+import { StorageBoxDetailDrawer } from '../components/boxes/StorageBoxDetailDrawer';
 import { BoxWorkspace } from '../components/boxes/BoxWorkspace';
-import { ComponentDetailDrawer } from '../components/inventory/ComponentDetailDrawer';
 import {
   Layers,
   Box,
@@ -22,12 +22,15 @@ import {
   Printer,
   AlertTriangle,
   Sparkles,
+  Eye,
+  FileText,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export const BoxesView: React.FC = () => {
   const { showToast } = useToastStore();
-  const { setSelectedComponentId } = useInventoryStore();
+  const { setSelectedComponentId, setEntryDrawerOpen } = useInventoryStore();
 
   const [boxes, setBoxes] = useState<StorageBoxSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,6 +49,9 @@ export const BoxesView: React.FC = () => {
 
   // 独立标签打印弹窗状态
   const [activeLabelBox, setActiveLabelBox] = useState<StorageBoxSummary | null>(null);
+
+  // 独立收纳盒详情与物料清单抽屉状态
+  const [detailDrawerBox, setDetailDrawerBox] = useState<StorageBoxSummary | null>(null);
 
   const fetchBoxes = async (maintainSelectedName?: string) => {
     setLoading(true);
@@ -73,6 +79,14 @@ export const BoxesView: React.FC = () => {
   useEffect(() => {
     fetchBoxes();
   }, []);
+
+  useEffect(() => {
+    const handleGlobalDataChanged = () => {
+      fetchBoxes(selectedBoxName || undefined);
+    };
+    window.addEventListener('GLOBAL_INVENTORY_DATA_CHANGED', handleGlobalDataChanged);
+    return () => window.removeEventListener('GLOBAL_INVENTORY_DATA_CHANGED', handleGlobalDataChanged);
+  }, [selectedBoxName]);
 
   useEffect(() => {
     const handleNav = (e: any) => {
@@ -160,6 +174,37 @@ export const BoxesView: React.FC = () => {
     if (e) e.stopPropagation();
     setEditingBox(box);
     setConfigModalOpen(true);
+  };
+
+  const handleDeleteBox = async (box: StorageBoxSummary, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const itemCount = box.item_count || 0;
+    const confirmMsg =
+      itemCount > 0
+        ? `收纳盒【${box.name}】内目前存有 ${itemCount} 种物料（共 ${box.total_quantity || 0} 件）。\n\n删除收纳盒将同时【解除盒内元器件的位置绑定】（元器件仍安全保留在库存大盘中，位置变更为待归位）。\n\n确认彻底删除此收纳盒吗？`
+        : `确定要彻底删除收纳盒【${box.name}】吗？此操作不可逆。`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const targetIdOrName = box.id || box.name;
+      const res = await boxApi.deleteBoxConfig(targetIdOrName);
+      if (res.success) {
+        showToast(`收纳盒【${box.name}】已成功删除`, 'success');
+        if (selectedBoxName === box.name) {
+          setSelectedBoxName(null);
+        }
+        if (detailDrawerBox?.name === box.name) {
+          setDetailDrawerBox(null);
+        }
+        window.dispatchEvent(new CustomEvent('GLOBAL_INVENTORY_DATA_CHANGED'));
+        await fetchBoxes();
+      } else {
+        showToast('删除失败', 'error');
+      }
+    } catch (err: any) {
+      showToast('删除失败: ' + err.message, 'error');
+    }
   };
 
   return (
@@ -271,6 +316,27 @@ export const BoxesView: React.FC = () => {
                 <Layers className="w-6 h-6 text-accent animate-pulse stroke-[2.2]" />
                 <span className="font-bold">加载收纳容器中...</span>
               </div>
+            ) : boxes.length === 0 ? (
+              <div className="p-6 text-center text-text-muted flex flex-col items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center mb-3 text-text-muted border border-border-subtle">
+                  <Layers className="w-5 h-5 stroke-[2]" />
+                </div>
+                <div className="font-bold text-xs text-text-main mb-1">暂无物理收纳容器</div>
+                <p className="text-[11px] text-text-muted max-w-[200px] mb-4">
+                  登记零件箱、样品册或随手盒，开启物理网格化库位管理。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingBox(null);
+                    setConfigModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white font-bold text-xs rounded-[2px] transition-colors shadow-2xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>新建收纳盒</span>
+                </button>
+              </div>
             ) : filteredBoxes.length === 0 ? (
               <div className="py-8 text-center text-xs text-text-muted font-bold">未找到匹配容器</div>
             ) : (
@@ -281,7 +347,10 @@ export const BoxesView: React.FC = () => {
                 return (
                   <div
                     key={b.name}
-                    onClick={() => handleSelectBox(b)}
+                    onClick={() => {
+                      handleSelectBox(b);
+                      setDetailDrawerBox(b);
+                    }}
                     className={cn(
                       'px-3.5 py-3 transition-colors cursor-pointer select-none group',
                       isSelected
@@ -318,8 +387,28 @@ export const BoxesView: React.FC = () => {
                         </h3>
                       </div>
 
-                      {/* 快捷打印与配置 */}
+                      {/* 快捷存料、查看清单、打印与配置 */}
                       <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEntryDrawerOpen(true, b.name);
+                          }}
+                          className="p-1 hover:text-accent hover:bg-subtle rounded text-text-muted"
+                          title={`快速录入物料并存入【${b.name}】`}
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDetailDrawerBox(b);
+                          }}
+                          className="p-1 hover:text-accent hover:bg-subtle rounded text-text-muted"
+                          title="查看收纳盒档案与物料明细清单"
+                        >
+                          <FileText className="w-3.5 h-3.5 stroke-[2.2]" />
+                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -336,6 +425,13 @@ export const BoxesView: React.FC = () => {
                           title="编辑容器规格"
                         >
                           <Settings className="w-3.5 h-3.5 stroke-[2.2]" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteBox(b, e)}
+                          className="p-1 hover:text-danger hover:bg-danger/10 rounded text-text-muted"
+                          title={`删除收纳盒【${b.name}】`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 stroke-[2.2]" />
                         </button>
                       </div>
                     </div>
@@ -362,10 +458,14 @@ export const BoxesView: React.FC = () => {
                         )}
                       </div>
 
-                      <ChevronRight className={cn(
-                        'w-3.5 h-3.5 transition-transform stroke-[2.5] shrink-0',
-                        isSelected ? 'text-accent translate-x-0.5' : 'text-text-muted/60 opacity-0 group-hover:opacity-100'
-                      )} />
+                      <ChevronRight
+                        className={cn(
+                          'w-3.5 h-3.5 transition-transform stroke-[2.5] shrink-0',
+                          isSelected
+                            ? 'text-accent translate-x-0.5'
+                            : 'text-text-muted/60 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:text-accent'
+                        )}
+                      />
                     </div>
                   </div>
                 );
@@ -400,6 +500,14 @@ export const BoxesView: React.FC = () => {
         >
           <BoxWorkspace
             box={activeBox}
+            hasAnyBox={boxes.length > 0}
+            onCreateBox={() => {
+              setEditingBox(null);
+              setConfigModalOpen(true);
+            }}
+            onOpenDetailDrawer={(box) => {
+              setDetailDrawerBox(box);
+            }}
             onConfigEdit={(box) => {
               setEditingBox(box);
               setConfigModalOpen(true);
@@ -413,6 +521,7 @@ export const BoxesView: React.FC = () => {
             onBoxUpdated={() => {
               fetchBoxes(activeBox?.name);
             }}
+            onDeleteBox={handleDeleteBox}
             onBackToList={() => {
               setMobileViewMode('LIST');
             }}
@@ -437,8 +546,16 @@ export const BoxesView: React.FC = () => {
         zIndex={85}
       />
 
-      {/* 元器件全生命周期档案抽屉 */}
-      <ComponentDetailDrawer />
+      {/* 独立收纳盒详情档案与全量物料清单抽屉 */}
+      <StorageBoxDetailDrawer
+        isOpen={!!detailDrawerBox}
+        onClose={() => setDetailDrawerBox(null)}
+        box={detailDrawerBox}
+        onEditConfig={(b) => handleEditConfig(b)}
+        onOpenLabelPrint={(b) => setActiveLabelBox(b)}
+        onDeleteBox={handleDeleteBox}
+        onBoxUpdated={() => fetchBoxes(activeBox?.name)}
+      />
     </div>
   );
 };

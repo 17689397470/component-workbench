@@ -278,6 +278,24 @@ export const ProjectsView: React.FC = () => {
                 <Hammer className="w-6 h-6 text-accent animate-pulse stroke-[2.2]" />
                 <span className="font-bold">加载制作项目中...</span>
               </div>
+            ) : projects.length === 0 ? (
+              <div className="p-6 text-center text-text-muted flex flex-col items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-subtle flex items-center justify-center mb-3 text-text-muted border border-border-subtle">
+                  <Hammer className="w-5 h-5 stroke-[2]" />
+                </div>
+                <div className="font-bold text-xs text-text-main mb-1">暂无制作项目</div>
+                <p className="text-[11px] text-text-muted max-w-[200px] mb-4">
+                  创建打样/量产项目，一键分析物料齐套率并完成备料锁库。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setCreateModalOpen(true)}
+                  className="px-3 py-1.5 bg-accent hover:bg-accent/90 text-white font-bold text-xs rounded-[2px] transition-colors shadow-2xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>新建制作项目</span>
+                </button>
+              </div>
             ) : filteredProjects.length === 0 ? (
               <div className="py-8 text-center text-xs text-text-muted font-bold">未找到匹配制作项目</div>
             ) : (

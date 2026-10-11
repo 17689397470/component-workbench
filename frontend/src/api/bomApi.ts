@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, getStoredToken } from './client';
 import {
   BomMatchResult,
   BomSummary,
@@ -14,12 +14,20 @@ export const bomApi = {
   async uploadBomFile(file: File): Promise<{ success: boolean; filename: string; data: BomParsedData }> {
     const formData = new FormData();
     formData.append('bomFile', file);
+    const token = getStoredToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     const res = await fetch('/api/bom/upload', {
       method: 'POST',
+      headers,
       body: formData,
     });
     if (!res.ok) {
       const err = await res.json().catch(() => null);
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent('bom:auth_required'));
+      }
       throw new Error(err?.error || 'BOM 文件解析失败');
     }
     return res.json();

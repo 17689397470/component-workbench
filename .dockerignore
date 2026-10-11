@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+node_modules
+frontend/node_modules
+dist
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/backups/*
+test/*.db*
+*.log

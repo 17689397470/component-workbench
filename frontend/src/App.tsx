@@ -6,6 +6,9 @@ import { ImmersiveScannerModal } from './components/scanner/ImmersiveScannerModa
 import { BackupModal } from './components/backup/BackupModal';
 import { TaobaoImportModal } from './components/inventory/TaobaoImportModal';
 import { MobileQuickAdjustModal } from './components/inventory/MobileQuickAdjustModal';
+import { ComponentEntryDrawer } from './components/inventory/ComponentEntryDrawer';
+import { ComponentDetailDrawer } from './components/inventory/ComponentDetailDrawer';
+import { AuthModal } from './components/common/AuthModal';
 import { Toast } from './components/ui/Toast';
 
 import { InventoryView } from './views/InventoryView';
@@ -53,6 +56,15 @@ export const App: React.FC = () => {
 
       {/* 手机扫码快捷盘点与领料卡片 */}
       <MobileQuickAdjustModal />
+
+      {/* 元器件全生命周期规格详情抽屉 */}
+      <ComponentDetailDrawer />
+
+      {/* ＋ 记一笔 / 录入元器件全局抽屉 */}
+      <ComponentEntryDrawer />
+
+      {/* 安全访问密码验证模态框 */}
+      <AuthModal />
 
       {/* 全局浮动提示 */}
       <Toast />

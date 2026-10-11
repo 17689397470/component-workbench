@@ -80,10 +80,11 @@ export const boxApi = {
     );
   },
 
-  // 删除收纳盒配置
-  async deleteBoxConfig(id: number) {
-    return apiRequest<{ success: boolean }>(
-      `/api/storage-boxes/${id}`,
+  // 删除收纳盒配置 (支持数字 ID 或盒子名称，并自动解除盒内物料位置绑定)
+  async deleteBoxConfig(idOrName: number | string, clearItems: boolean = true) {
+    const encoded = encodeURIComponent(String(idOrName));
+    return apiRequest<{ success: boolean; unlinkedCount?: number }>(
+      `/api/storage-boxes/${encoded}?clearItems=${clearItems}`,
       {
         method: 'DELETE',
       }

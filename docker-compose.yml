@@ -1,0 +1,22 @@
+services:
+  bom-workbench:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bom-workbench
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ACCESS_PASSWORD=${ACCESS_PASSWORD:-}
+      - TZ=Asia/Shanghai
+    volumes:
+      # 持久化映射：将容器内的数据库与备份快照持久化到宿主机当前目录下的 data 文件夹
+      - ./data:/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"

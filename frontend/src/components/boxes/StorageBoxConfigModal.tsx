@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StorageBoxConfig, BoxType, SlotNaming } from '../../types/box';
+import { StorageBoxConfig, StorageBoxSummary, BoxType, SlotNaming } from '../../types/box';
 import { boxApi } from '../../api/boxApi';
 import { useToastStore } from '../../store/useToastStore';
 import { Modal } from '../ui/Modal';
@@ -17,7 +17,7 @@ import {
 interface StorageBoxConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
-  box?: StorageBoxConfig | null;
+  box?: StorageBoxConfig | StorageBoxSummary | null;
   onSaved: () => void;
   zIndex?: number;
 }
@@ -188,17 +188,27 @@ export const StorageBoxConfigModal: React.FC<StorageBoxConfigModalProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!box?.id) return;
-    if (!window.confirm(`确定要删除收纳盒【${box.name}】的物理网格配置吗？（不会删除库中的元器件，仅清除规格定义）`)) {
-      return;
-    }
+    if (!box) return;
+    const summary = box as StorageBoxSummary;
+    const itemCount = summary.item_count || 0;
+    const totalQty = summary.total_quantity || 0;
+    const confirmMsg =
+      itemCount > 0
+        ? `收纳盒【${box.name}】内目前存有 ${itemCount} 种物料（共 ${totalQty} 件）。\n\n删除收纳盒将同时【解除盒内元器件的位置绑定】（元器件仍安全保留在库存大盘中，位置变更为待归位）。\n\n确认彻底删除此收纳盒吗？`
+        : `确定要彻底删除收纳盒【${box.name}】吗？此操作不可逆。`;
+
+    if (!window.confirm(confirmMsg)) return;
 
     try {
-      const res = await boxApi.deleteBoxConfig(box.id);
+      const targetIdOrName = box.id || box.name;
+      const res = await boxApi.deleteBoxConfig(targetIdOrName);
       if (res.success) {
-        showToast('收纳盒配置已删除', 'success');
+        showToast(`收纳盒【${box.name}】已成功删除`, 'success');
+        window.dispatchEvent(new CustomEvent('GLOBAL_INVENTORY_DATA_CHANGED'));
         onSaved();
         onClose();
+      } else {
+        showToast('删除失败', 'error');
       }
     } catch (err: any) {
       showToast('删除失败: ' + err.message, 'error');
@@ -405,14 +415,14 @@ export const StorageBoxConfigModal: React.FC<StorageBoxConfigModalProps> = ({
 
         {/* 底部按钮栏 */}
         <div className="pt-3 border-t border-border-subtle flex items-center justify-between">
-          {box?.id ? (
+          {box ? (
             <button
               type="button"
               onClick={handleDelete}
-              className="px-3 py-1.5 text-xs text-danger hover:bg-danger/10 rounded-xl transition-all flex items-center gap-1"
+              className="px-3 py-1.5 text-xs text-danger hover:bg-danger/10 rounded-xl transition-all flex items-center gap-1 font-bold"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              删除配置
+              删除收纳盒
             </button>
           ) : (
             <div />

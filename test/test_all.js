@@ -5,6 +5,14 @@
 
 const fs = require('fs');
 const path = require('path');
+
+const testDbPath = path.join(__dirname, '..', 'data', 'test_sandbox.db');
+process.env.DB_PATH = testDbPath;
+// 清理可能遗留的旧沙盒文件
+[testDbPath, testDbPath + '-wal', testDbPath + '-shm'].forEach((f) => {
+  try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+});
+
 const db = require('../lib/db');
 const { parseComponentText } = require('../lib/parser');
 const { queryOfficialComponent } = require('../lib/lcscService');
@@ -112,12 +120,19 @@ STM32F401CCU6,QFN-48,"U1",1,
   console.log(`✔ 扫码解析成功: 料号=${scanData.data.lcsc_part}, 品名=${scanData.data.name}, 数量=${scanData.data.quantity}`);
 
   console.log('\n--- [Step 11] 验证物理收纳盒 2.0 (Boxes 2.0) 网格透视与格位分配 ---');
+  const tempBoxName = '__TEST_BOX_INTEGRATION__';
+  await fetch('http://localhost:3000/api/storage-boxes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: tempBoxName, type: 'GRID', rows: 3, cols: 4, color: '#3B82F6' }),
+  });
+
   const boxesRes = await fetch('http://localhost:3000/api/storage-boxes');
   const boxesData = await boxesRes.json();
   if (!boxesData.success || !Array.isArray(boxesData.data) || boxesData.data.length === 0) {
     throw new Error('收纳盒 2.0 列表查询失败');
   }
-  const targetBox = boxesData.data[0];
+  const targetBox = boxesData.data.find((b) => b.name === tempBoxName) || boxesData.data[0];
   console.log(`✔ 收纳盒 2.0 聚合列表正常: 共发现 ${boxesData.data.length} 个空间, 抽查 [${targetBox.name}] (饱和度: ${targetBox.occupancy_rate || 0}%)`);
 
   // 验证网格
@@ -128,12 +143,31 @@ STM32F401CCU6,QFN-48,"U1",1,
   }
   console.log(`✔ 收纳盒 2.0 二维网格投影正常: 网格数=${gridData.data.grid.length}, 待分配散料=${gridData.data.unassigned.length} 种`);
 
+  // 清理临时测试收纳盒
+  await fetch(`http://localhost:3000/api/storage-boxes/${encodeURIComponent(tempBoxName)}`, {
+    method: 'DELETE',
+  });
+  console.log('✔ 临时测试收纳盒已自动销毁');
+
+  // 关闭测试数据库连接并清理沙盒文件
+  await db.closeDb();
+  [testDbPath, testDbPath + '-wal', testDbPath + '-shm'].forEach((f) => {
+    try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+  });
+  console.log('✔ 测试沙盒数据库已安全释放与销毁，正式数据库保持 100% 纯净零污染');
+
   console.log('\n========================================================');
   console.log('🎉 全部单元与集成测试（含收纳盒2.0网格与全流程）均 100% 顺利通过！');
   console.log('========================================================\n');
 }
 
-runTests().catch(err => {
+runTests().catch(async (err) => {
   console.error('❌ 测试失败:', err);
+  try {
+    await db.closeDb();
+    [testDbPath, testDbPath + '-wal', testDbPath + '-shm'].forEach((f) => {
+      try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch (e) {}
+    });
+  } catch (e) {}
   process.exit(1);
 });

@@ -9,6 +9,7 @@ import { ComponentItem } from '../../types/component';
 import { boxApi } from '../../api/boxApi';
 import { componentApi } from '../../api/componentApi';
 import { useToastStore } from '../../store/useToastStore';
+import { useInventoryStore } from '../../store/useInventoryStore';
 import { AcrylicDrawerCell } from './AcrylicDrawerCell';
 import {
   Search,
@@ -20,6 +21,7 @@ import {
   ArrowRight,
   ArrowLeft,
   Trash2,
+  Archive,
   ExternalLink,
   Inbox,
   Sparkles,
@@ -29,12 +31,17 @@ import {
   X,
   Plus,
   Minus,
+  FileText,
 } from 'lucide-react';
 
 interface BoxWorkspaceProps {
   box: StorageBoxSummary | null;
+  hasAnyBox?: boolean;
+  onCreateBox?: () => void;
+  onOpenDetailDrawer?: (box: StorageBoxSummary) => void;
   onConfigEdit: (box: StorageBoxSummary) => void;
   onOpenLabelPrint: (box: StorageBoxSummary) => void;
+  onDeleteBox?: (box: StorageBoxSummary) => void;
   onSelectComponent: (comp: ComponentItem | BoxComponentDetail) => void;
   onBoxUpdated?: () => void;
   onBackToList?: () => void;
@@ -42,13 +49,18 @@ interface BoxWorkspaceProps {
 
 export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
   box,
+  hasAnyBox = true,
+  onCreateBox,
+  onOpenDetailDrawer,
   onConfigEdit,
   onOpenLabelPrint,
+  onDeleteBox,
   onSelectComponent,
   onBoxUpdated,
   onBackToList,
 }) => {
   const { showToast } = useToastStore();
+  const { setEntryDrawerOpen } = useInventoryStore();
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<BoxGridResponseData | null>(null);
@@ -110,6 +122,14 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
       fetchGridData(1);
     }
   }, [box?.name, box?.rows, box?.cols, box?.pages]);
+
+  useEffect(() => {
+    const handleGlobalDataChanged = () => {
+      fetchGridData(currentPage);
+    };
+    window.addEventListener('GLOBAL_INVENTORY_DATA_CHANGED', handleGlobalDataChanged);
+    return () => window.removeEventListener('GLOBAL_INVENTORY_DATA_CHANGED', handleGlobalDataChanged);
+  }, [box?.name, currentPage]);
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
@@ -230,6 +250,27 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
   const occupancyRate = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
 
   if (!box) {
+    if (!hasAnyBox) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center p-8 text-center text-text-muted border border-border-subtle rounded-md bg-canvas">
+          <Layers className="w-14 h-14 text-border-hover mb-3 opacity-60" />
+          <h3 className="text-base font-bold text-text-main">系统暂无物理收纳容器</h3>
+          <p className="text-xs sm:text-sm text-text-muted mt-1.5 max-w-sm mb-4">
+            创建您的第一个 2D 亚克力网格抽屉、阻容样品本或散料盒，开启物理网格化库位管理。
+          </p>
+          {onCreateBox && (
+            <button
+              type="button"
+              onClick={onCreateBox}
+              className="px-4 py-2 bg-accent hover:bg-accent/90 text-white font-bold text-xs rounded-[2px] transition-colors shadow-2xs flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>新建首个收纳容器</span>
+            </button>
+          )}
+        </div>
+      );
+    }
     return (
       <div className="h-full flex flex-col items-center justify-center p-8 text-center text-text-muted border border-border-subtle rounded-md bg-canvas">
         <Layers className="w-14 h-14 text-border-hover mb-3 opacity-60" />
@@ -265,28 +306,43 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
 
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="font-black text-base sm:text-lg text-text-main truncate tracking-tight">
+              <h2
+                onClick={() => onOpenDetailDrawer && box && onOpenDetailDrawer(box)}
+                className="font-black text-base sm:text-lg text-text-main truncate tracking-tight cursor-pointer hover:text-accent transition-colors"
+                title="点击查看收纳盒详情档案与全量物料清单"
+              >
                 {boxConfig?.name}
               </h2>
               <span className="font-mono text-xs font-black px-2 py-0.5 rounded-[2px] bg-subtle text-text-muted border border-border-subtle shrink-0">
                 {boxConfig?.box_type === 'BOOK'
                   ? `样品本 · P${currentPage}/${data?.totalPages || boxConfig.pages || 1}`
+                  : boxConfig?.box_type === 'BIN'
+                  ? '随手盒 · 散料仓'
                   : `${rows}R × ${cols}C (${totalSlots}格)`}
               </span>
             </div>
 
-            {/* 容量饱和度高对比度标尺 (高度增至 h-2.5，厚实饱满) */}
+            {/* 容量饱和度高对比度标尺 (随手盒展示物料总量) */}
             <div className="flex items-center gap-2.5 text-xs text-text-muted mt-1 font-mono font-bold">
-              <span>
-                已占用 <strong className="text-text-main font-black">{occupiedSlots}</strong> / {totalSlots} 格
-              </span>
-              <div className="w-24 h-2.5 bg-subtle rounded-full overflow-hidden border border-border-subtle">
-                <div
-                  className="h-full bg-accent transition-all duration-300"
-                  style={{ width: `${occupancyRate}%` }}
-                />
-              </div>
-              <span className="text-accent font-black">{occupancyRate}%</span>
+              {boxConfig?.box_type === 'BIN' ? (
+                <span>
+                  在库散料: <strong className="text-text-main font-black">{unassigned.length}</strong> 种 (
+                  {unassigned.reduce((s, i) => s + (i.quantity || 0), 0)} 件)
+                </span>
+              ) : (
+                <>
+                  <span>
+                    已占用 <strong className="text-text-main font-black">{occupiedSlots}</strong> / {totalSlots} 格
+                  </span>
+                  <div className="w-24 h-2.5 bg-subtle rounded-full overflow-hidden border border-border-subtle">
+                    <div
+                      className="h-full bg-accent transition-all duration-300"
+                      style={{ width: `${occupancyRate}%` }}
+                    />
+                  </div>
+                  <span className="text-accent font-black">{occupancyRate}%</span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -340,6 +396,17 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
             )}
           </div>
 
+          {/* ＋ 存入物料 主操作 */}
+          <button
+            type="button"
+            onClick={() => setEntryDrawerOpen(true, boxConfig?.name)}
+            className="px-2.5 py-1.5 text-xs font-black bg-accent text-white hover:bg-accent/90 rounded-[2px] transition-colors shadow-2xs flex items-center gap-1 shrink-0"
+            title={`录入元器件并存放到【${boxConfig?.name}】`}
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>存入物料</span>
+          </button>
+
           {/* 刷新 */}
           <button
             onClick={() => fetchGridData(currentPage)}
@@ -349,6 +416,19 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
+
+          {/* 查看收纳盒详情档案与物料明细清单 */}
+          {onOpenDetailDrawer && box && (
+            <button
+              type="button"
+              onClick={() => onOpenDetailDrawer(box)}
+              className="px-3 py-1.5 text-xs sm:text-sm font-semibold bg-subtle hover:bg-surface border border-border-subtle hover:border-border-hover text-text-main rounded-[2px] transition-colors flex items-center gap-1.5"
+              title="查看该收纳盒详情档案与盒内全量物料明细清单"
+            >
+              <FileText className="w-4 h-4 text-accent" />
+              <span>盒内清单</span>
+            </button>
+          )}
 
           {/* 标签打印 */}
           <button
@@ -369,6 +449,18 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
             <Settings className="w-4 h-4" />
             <span className="hidden sm:inline">配置</span>
           </button>
+
+          {/* 删除收纳盒 */}
+          {onDeleteBox && box && (
+            <button
+              onClick={() => onDeleteBox(box)}
+              className="px-2.5 py-1.5 text-xs sm:text-sm font-medium text-danger hover:bg-danger/10 border border-danger/20 rounded-[2px] transition-colors flex items-center gap-1.5"
+              title={`彻底删除收纳盒【${box.name}】`}
+            >
+              <Trash2 className="w-4 h-4 stroke-[2.2]" />
+              <span className="hidden sm:inline">删除</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -391,63 +483,141 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
         </div>
       )}
 
-      {/* 3. 工作台工作区：2D 亚克力网格矩阵 + 右侧就地巡检抽屉面板 */}
+      {/* 3. 工作台工作区：随手盒物料仓 / 2D 亚克力网格矩阵 + 右侧就地巡检抽屉面板 */}
       <div className="flex-1 flex min-h-0 overflow-hidden relative">
-        {/* 左侧：2D 亚克力网格阵列 (舒适呼吸感、列宽扩至 155px) */}
-        <div className="flex-1 overflow-auto p-4 flex flex-col justify-between">
-          <div className="relative">
-            {loading && (
-              <div className="absolute inset-0 bg-surface/50 backdrop-blur-[1px] flex items-center justify-center z-20">
-                <div className="flex items-center gap-2 px-4 py-2 bg-surface border border-border-subtle rounded shadow-xs text-xs sm:text-sm text-text-main font-medium">
-                  <RefreshCw className="w-4 h-4 animate-spin text-accent" />
-                  <span>正在投射亚克力矩阵...</span>
+        {boxConfig?.box_type === 'BIN' ? (
+          /* 随手盒专属：散料仓卡片流视图 */
+          <div className="flex-1 overflow-auto p-4 flex flex-col">
+            {unassigned.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-text-muted bg-canvas rounded-md border border-dashed border-border-subtle my-auto">
+                <div className="w-12 h-12 rounded-full bg-subtle flex items-center justify-center mb-3 text-text-muted border border-border-subtle">
+                  <Archive className="w-6 h-6 text-accent stroke-[2]" />
+                </div>
+                <h3 className="text-base font-black text-text-main">随手盒当前暂无元器件</h3>
+                <p className="text-xs sm:text-sm text-text-muted mt-1.5 max-w-sm mb-4">
+                  随手盒适用于存放无特定行列网格的散装器件、静电袋或自封袋物料。
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setEntryDrawerOpen(true, boxConfig?.name)}
+                  className="px-4 py-2 bg-accent hover:bg-accent/90 text-white font-black text-xs rounded-[2px] transition-colors shadow-2xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>＋ 录入元器件到此随手盒</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold text-text-muted pb-1 border-b border-border-subtle">
+                  <span>盒内散料物料清单 ({unassigned.length} 种)</span>
+                  <div className="flex items-center gap-3">
+                    {onOpenDetailDrawer && box && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenDetailDrawer(box)}
+                        className="text-text-muted hover:text-text-main flex items-center gap-1 font-semibold"
+                        title="打开收纳盒档案与完整物料清单表格"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-accent" />
+                        <span>表格明细</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setEntryDrawerOpen(true, boxConfig?.name)}
+                      className="text-accent hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>继续存入</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
+                  {unassigned.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => onSelectComponent(item)}
+                      className="p-3 bg-surface hover:bg-subtle/70 rounded-[2px] border border-border-subtle hover:border-accent cursor-pointer transition-colors flex flex-col justify-between group select-none shadow-2xs"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="text-[11px] font-mono font-bold px-1.5 py-0.2 bg-subtle text-text-muted rounded-[2px] border border-border-subtle">
+                            {item.category}
+                          </span>
+                          <span className="text-sm font-black font-mono text-text-main">
+                            {item.quantity} 件
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-black text-text-main group-hover:text-accent truncate">
+                          {item.name}
+                        </h4>
+                        <div className="text-[11px] font-mono text-text-muted truncate mt-0.5">
+                          {item.package || '-'} · {item.value || '-'}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
+          </div>
+        ) : (
+          /* 网格柜与样品本：2D 亚克力网格阵列 */
+          <div className="flex-1 overflow-auto p-4 flex flex-col justify-between">
+            <div className="relative">
+              {loading && (
+                <div className="absolute inset-0 bg-surface/50 backdrop-blur-[1px] flex items-center justify-center z-20">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-surface border border-border-subtle rounded shadow-xs text-xs sm:text-sm text-text-main font-medium">
+                    <RefreshCw className="w-4 h-4 animate-spin text-accent" />
+                    <span>正在投射亚克力矩阵...</span>
+                  </div>
+                </div>
+              )}
 
-            {/* 亚克力物理抽屉网格 */}
-            <div
-              className="grid gap-2.5 transition-all pb-4"
-              style={{
-                gridTemplateColumns: `repeat(${cols}, minmax(155px, 1fr))`,
-              }}
-            >
-              {gridSlots.map((slotItem) => {
-                const isSelected =
-                  inspectSlot?.slot === slotItem.slot || assignTargetSlot === slotItem.slot;
-                const isSearchMatch = searchMatchMap ? searchMatchMap.has(slotItem.slot) : false;
-                const isSearchDimmed = searchMatchMap !== null && !isSearchMatch;
-                const isAssignTarget = !!assigningComp && !slotItem.isOccupied;
+              {/* 亚克力物理抽屉网格 */}
+              <div
+                className="grid gap-2.5 transition-all pb-4"
+                style={{
+                  gridTemplateColumns: `repeat(${cols}, minmax(155px, 1fr))`,
+                }}
+              >
+                {gridSlots.map((slotItem) => {
+                  const isSelected =
+                    inspectSlot?.slot === slotItem.slot || assignTargetSlot === slotItem.slot;
+                  const isSearchMatch = searchMatchMap ? searchMatchMap.has(slotItem.slot) : false;
+                  const isSearchDimmed = searchMatchMap !== null && !isSearchMatch;
+                  const isAssignTarget = !!assigningComp && !slotItem.isOccupied;
 
-                return (
-                  <AcrylicDrawerCell
-                    key={slotItem.slot}
-                    slotItem={slotItem}
-                    isSelected={isSelected}
-                    isSearchMatch={isSearchMatch}
-                    isSearchDimmed={isSearchDimmed}
-                    isAssignTarget={isAssignTarget}
-                    onClick={() => {
-                      if (assigningComp) {
-                        if (!slotItem.isOccupied) {
-                          handleAssignToSlot(slotItem.slot, assigningComp);
+                  return (
+                    <AcrylicDrawerCell
+                      key={slotItem.slot}
+                      slotItem={slotItem}
+                      isSelected={isSelected}
+                      isSearchMatch={isSearchMatch}
+                      isSearchDimmed={isSearchDimmed}
+                      isAssignTarget={isAssignTarget}
+                      onClick={() => {
+                        if (assigningComp) {
+                          if (!slotItem.isOccupied) {
+                            handleAssignToSlot(slotItem.slot, assigningComp);
+                          } else {
+                            showToast(`抽屉 [${slotItem.slot}] 已被占用`, 'info');
+                          }
+                        } else if (slotItem.isOccupied) {
+                          setAssignTargetSlot(null);
+                          setInspectSlot(slotItem);
                         } else {
-                          showToast(`抽屉 [${slotItem.slot}] 已被占用`, 'info');
+                          setInspectSlot(null);
+                          setAssignTargetSlot(slotItem.slot);
                         }
-                      } else if (slotItem.isOccupied) {
-                        setAssignTargetSlot(null);
-                        setInspectSlot(slotItem);
-                      } else {
-                        setInspectSlot(null);
-                        setAssignTargetSlot(slotItem.slot);
-                      }
-                    }}
-                  />
-                );
-              })}
+                      }}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* 右侧：就地抽屉面板 (Inspector & Inbound Panel) - 宽度加大至 380px，字号大更清晰 */}
         {(inspectSlot || assignTargetSlot) && (
@@ -697,82 +867,84 @@ export const BoxWorkspace: React.FC<BoxWorkspaceProps> = ({
         )}
       </div>
 
-      {/* 4. 底部待分配散料托盘 (Unassigned Tray - 大字号清晰可读) */}
-      <div className="border-t border-border-subtle bg-surface shrink-0">
-        <button
-          onClick={() => setIsUnassignedOpen(!isUnassignedOpen)}
-          className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-subtle/50 transition-colors text-left"
-        >
-          <div className="flex items-center gap-2">
-            <Inbox className="w-4 h-4 text-accent" />
-            <span className="text-xs sm:text-sm font-bold text-text-main">
-              盒内待划格散料区 ({unassigned.length} 种)
-            </span>
-            <span className="text-xs text-text-muted hidden sm:inline">
-              (存放于此盒但尚未分配具体抽屉坐标的散料)
-            </span>
-          </div>
+      {/* 4. 底部待分配散料托盘 (Unassigned Tray - 仅网格柜与样品本需要划格) */}
+      {boxConfig?.box_type !== 'BIN' && (
+        <div className="border-t border-border-subtle bg-surface shrink-0">
+          <button
+            onClick={() => setIsUnassignedOpen(!isUnassignedOpen)}
+            className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-subtle/50 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Inbox className="w-4 h-4 text-accent" />
+              <span className="text-xs sm:text-sm font-bold text-text-main">
+                盒内待划格散料区 ({unassigned.length} 种)
+              </span>
+              <span className="text-xs text-text-muted hidden sm:inline">
+                (存放于此盒但尚未分配具体抽屉坐标的散料)
+              </span>
+            </div>
 
-          <div className="flex items-center gap-1 text-text-muted text-xs sm:text-sm font-medium">
-            <span>{isUnassignedOpen ? '收起' : '展开'}</span>
-            {isUnassignedOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </div>
-        </button>
+            <div className="flex items-center gap-1 text-text-muted text-xs sm:text-sm font-medium">
+              <span>{isUnassignedOpen ? '收起' : '展开'}</span>
+              {isUnassignedOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </div>
+          </button>
 
-        {isUnassignedOpen && (
-          <div className="px-4 pb-3.5 pt-1 border-t border-border-subtle/40 bg-canvas/50">
-            {unassigned.length === 0 ? (
-              <div className="py-3 text-center text-xs sm:text-sm text-text-muted font-mono">
-                ✓ 极佳！当前收纳盒内所有物料均已定位到具体抽屉网格，零散料堆积
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-40 overflow-y-auto pr-1">
-                {unassigned.map((item) => {
-                  const isBeingAssigned = assigningComp?.id === item.id;
-                  return (
-                    <div
-                      key={item.id}
-                      className={`p-2.5 rounded-[2px] border flex items-center justify-between gap-2.5 transition-all ${
-                        isBeingAssigned
-                          ? 'border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500'
-                          : 'border-border-subtle bg-surface hover:border-border-hover'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs sm:text-sm font-bold text-text-main truncate" title={item.name}>
-                          {item.name}
-                        </div>
-                        <div className="text-xs text-text-muted font-mono truncate mt-0.5">
-                          {item.package || '-'} · {item.value || '-'} · {item.quantity}件
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => {
-                          if (isBeingAssigned) {
-                            setAssigningComp(null);
-                          } else {
-                            setAssigningComp(item);
-                            showToast(`已选中【${item.name}】，请在上方网格中点击空格放置`, 'info');
-                          }
-                        }}
-                        className={`px-2.5 py-1.5 text-xs rounded-[2px] font-mono font-bold transition-all flex items-center gap-1 shrink-0 ${
+          {isUnassignedOpen && (
+            <div className="px-4 pb-3.5 pt-1 border-t border-border-subtle/40 bg-canvas/50">
+              {unassigned.length === 0 ? (
+                <div className="py-3 text-center text-xs sm:text-sm text-text-muted font-mono">
+                  ✓ 极佳！当前收纳盒内所有物料均已定位到具体抽屉网格，零散料堆积
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-40 overflow-y-auto pr-1">
+                  {unassigned.map((item) => {
+                    const isBeingAssigned = assigningComp?.id === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-2.5 rounded-[2px] border flex items-center justify-between gap-2.5 transition-all ${
                           isBeingAssigned
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-subtle hover:bg-accent hover:text-white text-text-main border border-border-subtle'
+                            ? 'border-emerald-500 bg-emerald-500/15 ring-1 ring-emerald-500'
+                            : 'border-border-subtle bg-surface hover:border-border-hover'
                         }`}
                       >
-                        <span>{isBeingAssigned ? '放置中' : '划入格位'}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs sm:text-sm font-bold text-text-main truncate" title={item.name}>
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-text-muted font-mono truncate mt-0.5">
+                            {item.package || '-'} · {item.value || '-'} · {item.quantity}件
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            if (isBeingAssigned) {
+                              setAssigningComp(null);
+                            } else {
+                              setAssigningComp(item);
+                              showToast(`已选中【${item.name}】，请在上方网格中点击空格放置`, 'info');
+                            }
+                          }}
+                          className={`px-2.5 py-1.5 text-xs rounded-[2px] font-mono font-bold transition-all flex items-center gap-1 shrink-0 ${
+                            isBeingAssigned
+                              ? 'bg-emerald-600 text-white'
+                              : 'bg-subtle hover:bg-accent hover:text-white text-text-main border border-border-subtle'
+                          }`}
+                        >
+                          <span>{isBeingAssigned ? '放置中' : '划入格位'}</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

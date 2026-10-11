@@ -12,10 +12,11 @@ const multer = require('multer');
 const qrcodeTerminal = require('qrcode-terminal');
 const XLSX = require('xlsx');
 const QRCode = require('qrcode');
+const crypto = require('crypto');
 
 const fs = require('fs');
 const db = require('./lib/db');
-const { parseComponentText, parseFreeformBatchText, parseOmniboxText } = require('./lib/parser');
+const { parseComponentText, parseFreeformBatchText, parseOmniboxText, parseSingleComponentText } = require('./lib/parser');
 const { queryOfficialComponent } = require('./lib/lcscService');
 const { parseBOMFile, parseBOMText, compareBOMWithStock, generatePickingList, extractPurchaseShortageList } = require('./lib/bomMatcher');
 const { parseTaobaoOrderFile } = require('./lib/taobaoParser');
@@ -64,6 +65,63 @@ function getLocalIPAddresses() {
   }
   return addresses;
 }
+
+// ==================== 访问密码与鉴权防护 (ACCESS_PASSWORD) ====================
+const ACCESS_PASSWORD = (process.env.ACCESS_PASSWORD || '').trim();
+
+function getExpectedToken() {
+  if (!ACCESS_PASSWORD) return null;
+  return crypto.createHmac('sha256', ACCESS_PASSWORD).update('bom_workbench_access_token_v1').digest('hex');
+}
+
+// 检查是否启用了密码保护
+app.get('/api/auth/status', (req, res) => {
+  res.json({
+    success: true,
+    auth_required: Boolean(ACCESS_PASSWORD)
+  });
+});
+
+// 校验密码并获取访问令牌
+app.post('/api/auth/login', (req, res) => {
+  if (!ACCESS_PASSWORD) {
+    return res.json({ success: true, auth_required: false, token: 'open_mode' });
+  }
+  const { password } = req.body || {};
+  if (!password || String(password).trim() !== ACCESS_PASSWORD) {
+    return res.status(401).json({ success: false, error: '访问密码错误，请重新输入' });
+  }
+  return res.json({
+    success: true,
+    token: getExpectedToken(),
+    message: '认证成功'
+  });
+});
+
+// 全局 API 拦截鉴权 (若配置了 ACCESS_PASSWORD)
+app.use('/api', (req, res, next) => {
+  if (!ACCESS_PASSWORD) {
+    return next(); // 本地或未设置密码时免密放行
+  }
+  // 允许免密访问的公开接口
+  if (req.path === '/auth/status' || req.path === '/auth/login' || req.path === '/info') {
+    return next();
+  }
+
+  const authHeader = req.headers['authorization'] || '';
+  const tokenFromHeader = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const token = tokenFromHeader || req.headers['x-access-token'] || req.query.access_token;
+
+  if (token && token === getExpectedToken()) {
+    return next();
+  }
+
+  return res.status(401).json({
+    success: false,
+    error: '未授权或登录已过期，请输入访问密码',
+    need_auth: true
+  });
+});
 
 // ==================== API 路由 ====================
 
@@ -147,6 +205,20 @@ app.get('/api/dashboard/stats', async (req, res) => {
         categoryDistribution
       }
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 5.0 快速单件自由文本智能解析 (单件极速记账输入框调用)
+app.post('/api/components/parse', async (req, res) => {
+  try {
+    const { text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, error: '缺少待解析文本' });
+    }
+    const result = parseSingleComponentText(text);
+    res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -587,10 +659,23 @@ app.put('/api/storage-boxes/:id', async (req, res) => {
   }
 });
 
-// 12.3 [Boxes 2.0] 删除收纳盒配置
+// 12.3 [Boxes 2.0] 删除收纳盒配置 (支持按ID或按名称，自动解除盒内物料关联)
 app.delete('/api/storage-boxes/:id', async (req, res) => {
   try {
-    const result = await db.deleteStorageBoxConfig(req.params.id);
+    const idOrName = decodeURIComponent(req.params.id);
+    const clearItems = req.query.clearItems !== 'false';
+    const result = await db.deleteStorageBoxConfig(idOrName, { clearItems });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/storage/boxes/:name', async (req, res) => {
+  try {
+    const boxName = decodeURIComponent(req.params.name);
+    const clearItems = req.query.clearItems !== 'false';
+    const result = await db.deleteStorageBoxConfig(boxName, { clearItems });
     res.json({ success: true, data: result });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

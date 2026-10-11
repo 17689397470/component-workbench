@@ -9,12 +9,30 @@ interface InventoryTableProps {
 }
 
 export const InventoryTable: React.FC<InventoryTableProps> = ({ components }) => {
-  const { setSelectedComponentId, setLocationFilter, adjustQuantity } = useInventoryStore();
+  const { setSelectedComponentId, setLocationFilter, adjustQuantity, setEntryDrawerOpen } = useInventoryStore();
 
   if (components.length === 0) {
     return (
-      <div className="py-16 text-center text-text-dim text-sm bg-surface border border-dashed border-border-subtle rounded-2xl">
-        未找到匹配的元器件，可尝试清空搜索词或点击右上角「＋ 记一笔」入库
+      <div className="py-20 text-center text-text-muted bg-surface border border-dashed border-border-subtle rounded-[3px] flex flex-col items-center justify-center p-6 gap-3">
+        <div className="w-12 h-12 rounded-full bg-subtle/80 flex items-center justify-center text-text-muted">
+          <Layers className="w-6 h-6 stroke-[1.8]" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold text-text-main">元器件库存为空</h3>
+          <p className="text-xs text-text-muted mt-1 max-w-sm">
+            您的工坊库房尚未录入物料。您可以点击录入器件，或批量导入立创/淘宝清单。
+          </p>
+        </div>
+        <div className="flex items-center gap-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setEntryDrawerOpen(true)}
+            className="px-3.5 py-1.5 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-[2px] shadow-xs flex items-center gap-1.5 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>录入元器件</span>
+          </button>
+        </div>
       </div>
     );
   }

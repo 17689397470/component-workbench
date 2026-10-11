@@ -167,12 +167,6 @@ export const InventoryView: React.FC = () => {
       ) : (
         <InventoryGrid components={components} density={gridDensity} />
       )}
-
-      {/* 规格详情抽屉 */}
-      <ComponentDetailDrawer />
-
-      {/* 记一笔抽屉 */}
-      <ComponentEntryDrawer />
     </div>
   );
 };

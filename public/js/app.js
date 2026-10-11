@@ -12,6 +12,52 @@ let duplicateTarget = null;
 let currentSortCol = 'id';
 let currentSortOrder = 'desc';
 
+// ==================== 全局访问鉴权与 Token 拦截器 ====================
+const TOKEN_KEY = 'bom_access_token';
+const _originalFetch = window.fetch;
+window.fetch = function (input, init = {}) {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) {
+    init.headers = init.headers || {};
+    if (init.headers instanceof Headers) {
+      if (!init.headers.has('Authorization')) init.headers.set('Authorization', 'Bearer ' + token);
+    } else if (Array.isArray(init.headers)) {
+      init.headers.push(['Authorization', 'Bearer ' + token]);
+    } else {
+      if (!init.headers['Authorization']) init.headers['Authorization'] = 'Bearer ' + token;
+    }
+  }
+  return _originalFetch(input, init).then((res) => {
+    if (res.status === 401) {
+      res.clone().json().then((json) => {
+        if (json && json.need_auth) {
+          promptLegacyAuth();
+        }
+      }).catch(() => {});
+    }
+    return res;
+  });
+};
+
+function promptLegacyAuth() {
+  localStorage.removeItem(TOKEN_KEY);
+  const pwd = window.prompt('当前系统处于公网环境，请输入访问密码 (ACCESS_PASSWORD):');
+  if (pwd) {
+    _originalFetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd.trim() })
+    }).then(r => r.json()).then(data => {
+      if (data.success && data.token) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+        window.location.reload();
+      } else {
+        alert(data.error || '密码错误');
+      }
+    });
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   applyInventoryViewMode();
@@ -1652,10 +1698,15 @@ function updateEntryIdentityCard(d) {
 
   if (matched) {
     duplicateTarget = matched;
+    const isDifferentLoc = finalLoc && matched.location && finalLoc !== matched.location && finalLoc !== '随手存放处';
     if (statusBar) {
       statusBar.className = 'card-status-bar is-duplicate';
       if (statusIcon) statusIcon.innerText = '⚠️';
-      if (statusText) statusText.innerText = `已有库存匹配：在【${matched.location || '随手存放处'}】存有 ${matched.quantity} 件`;
+      if (statusText) {
+        statusText.innerText = isDifferentLoc
+          ? `已有库存匹配：在原仓位【${matched.location}】存有 ${matched.quantity} 件（与当前指定的【${finalLoc}】不同）`
+          : `已有库存匹配：在【${matched.location || '随手存放处'}】存有 ${matched.quantity} 件`;
+      }
     }
     if (auditBox) {
       auditBox.style.display = 'block';
@@ -1666,8 +1717,13 @@ function updateEntryIdentityCard(d) {
       if (addEl) addEl.innerText = finalQty;
       if (totalEl) totalEl.innerText = matched.quantity + finalQty;
     }
-    if (btnSubmitText) btnSubmitText.innerText = '✔ 合并累加';
-    if (btnNewBox) btnNewBox.style.display = 'inline-block';
+    if (btnSubmitText) {
+      btnSubmitText.innerText = isDifferentLoc ? `✔ 合并到原仓位【${matched.location}】` : '✔ 合并累加';
+    }
+    if (btnNewBox) {
+      btnNewBox.style.display = 'inline-block';
+      btnNewBox.innerText = isDifferentLoc ? `📦 在【${finalLoc}】独立建档入库` : '另存为新盒 (Alt+N)';
+    }
   } else {
     duplicateTarget = null;
     if (statusBar) {
@@ -2064,11 +2120,61 @@ function initEntryDrawer() {
 
   // 全能速记框纯键盘快捷键支持 (Enter 解析 / Ctrl+Enter 存入 / 1~9 切丝印 / Alt+N 另存)
   const entryInput = document.getElementById('entry-text-input');
+  let entryDebounceTimer = null;
+
+  function showEntryAmbiguityTip(msg) {
+    let tipEl = document.getElementById('entry-ambiguity-tip');
+    if (!msg) {
+      if (tipEl) tipEl.style.display = 'none';
+      return;
+    }
+    if (!tipEl) {
+      tipEl = document.createElement('div');
+      tipEl.id = 'entry-ambiguity-tip';
+      tipEl.style.cssText = 'color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 6px 10px; font-size: 12px; margin-top: 6px; display: flex; align-items: center; gap: 6px;';
+      const container = entryInput ? entryInput.parentElement : null;
+      if (container) container.appendChild(tipEl);
+    }
+    tipEl.innerHTML = `<span>⚠️</span> <span>${escapeHtml(msg)}</span>`;
+    tipEl.style.display = 'flex';
+  }
+
   if (entryInput) {
+    entryInput.addEventListener('input', () => {
+      clearTimeout(entryDebounceTimer);
+      const text = entryInput.value.trim();
+      if (!text) {
+        showEntryAmbiguityTip(null);
+        return;
+      }
+      entryDebounceTimer = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/components/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+          });
+          const result = await res.json();
+          if (result.success && result.data) {
+            if (result.data.is_ambiguous) {
+              showEntryAmbiguityTip(result.data.ambiguity_suggestion || '输入存在歧义：请补充单位或类别，例如 100nF 或 100kΩ');
+            } else {
+              showEntryAmbiguityTip(null);
+            }
+          }
+        } catch (e) {}
+      }, 250);
+    });
+
     entryInput.addEventListener('keydown', (e) => {
       // 1. 快捷存入 Ctrl+Enter 或 Cmd+Enter
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
+        const tipEl = document.getElementById('entry-ambiguity-tip');
+        if (tipEl && tipEl.style.display !== 'none') {
+          showToast('⚠️ 输入存在歧义，请补充单位后继续（例如 100nF 或 100k）');
+          return;
+        }
         submitCurrentCard(false);
         return;
       }
@@ -2095,6 +2201,12 @@ function initEntryDrawer() {
         e.preventDefault();
         const text = entryInput.value.trim();
         if (!text) return;
+
+        const tipEl = document.getElementById('entry-ambiguity-tip');
+        if (tipEl && tipEl.style.display !== 'none') {
+          showToast('⚠️ 输入存在歧义，请补充单位后继续（例如 100nF 或 100k）');
+          return;
+        }
 
         // 如果当前已经解析激活且输入未变，再次敲 Enter 直接存入！
         const activeCard = document.getElementById('entry-card-active');

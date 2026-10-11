@@ -28,3 +28,7 @@ npm-debug.log*
 # 环境变量
 .env
 .env.local
+
+# 压缩归档包
+*.tar.gz
+*.zip
